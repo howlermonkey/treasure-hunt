@@ -227,6 +227,67 @@ const DirectionIndicator = ({ position, target, distance }) => {
   );
 };
 
+// Map Picker Component for Admin
+const MapPicker = ({ lat, lng, onLocationSelect, onClose }) => {
+  const [markerPos, setMarkerPos] = useState([lat, lng]);
+
+  const MapClickHandler = () => {
+    const map = useMap();
+
+    useEffect(() => {
+      const handleClick = (e) => {
+        setMarkerPos([e.latlng.lat, e.latlng.lng]);
+      };
+      map.on('click', handleClick);
+      return () => map.off('click', handleClick);
+    }, [map]);
+
+    return null;
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-80 z-[60] flex flex-col">
+      <div className="bg-white p-3 flex justify-between items-center">
+        <span className="font-bold">Tap map to set location</span>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onLocationSelect(markerPos[0], markerPos[1])}
+            className="bg-green-500 text-white px-4 py-2 rounded font-bold"
+          >
+            Confirm
+          </button>
+          <button
+            onClick={onClose}
+            className="bg-gray-400 text-white px-4 py-2 rounded font-bold"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+      <div className="flex-1">
+        <MapContainer
+          center={[lat, lng]}
+          zoom={17}
+          style={{ height: '100%', width: '100%' }}
+          zoomControl={true}
+        >
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <MapClickHandler />
+          <Marker position={markerPos} icon={targetIcon} />
+          <Circle
+            center={markerPos}
+            radius={30}
+            pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.2 }}
+          />
+        </MapContainer>
+      </div>
+      <div className="bg-white p-2 text-center text-sm">
+        Lat: {markerPos[0].toFixed(6)}, Lng: {markerPos[1].toFixed(6)}
+      </div>
+    </div>
+  );
+};
+
 // Admin Panel
 const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, onSaveToCloud }) => {
   const [activeTeam, setActiveTeam] = useState('sparkle');
@@ -234,6 +295,7 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, o
   const [adminPassword, setAdminPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(null);
 
   const handleAuth = () => {
     if (adminPassword === 'bushey2025') {
@@ -389,18 +451,26 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, o
                       placeholder="Hint"
                       className="w-full p-2 border rounded text-sm"
                     />
-                    <button
-                      onClick={() => {
-                        navigator.geolocation.getCurrentPosition((pos) => {
-                          updateStop(activeTeam, index, 'lat', pos.coords.latitude);
-                          updateStop(activeTeam, index, 'lng', pos.coords.longitude);
-                          alert('Location set to current position!');
-                        }, (err) => alert('GPS error: ' + err.message));
-                      }}
-                      className="w-full bg-green-500 text-white py-2 rounded text-sm"
-                    >
-                      📍 Set to Current Location
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          navigator.geolocation.getCurrentPosition((pos) => {
+                            updateStop(activeTeam, index, 'lat', pos.coords.latitude);
+                            updateStop(activeTeam, index, 'lng', pos.coords.longitude);
+                            alert('Location set to current position!');
+                          }, (err) => alert('GPS error: ' + err.message));
+                        }}
+                        className="flex-1 bg-green-500 text-white py-2 rounded text-sm"
+                      >
+                        📍 Use GPS
+                      </button>
+                      <button
+                        onClick={() => setShowMapPicker(index)}
+                        className="flex-1 bg-purple-500 text-white py-2 rounded text-sm"
+                      >
+                        🗺️ Pick on Map
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -426,6 +496,19 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, o
           <button onClick={() => { if(confirm('Reset all?')) setStops(DEFAULT_STOPS); }} className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold">🔄 Reset</button>
         </div>
       </div>
+
+      {showMapPicker !== null && (
+        <MapPicker
+          lat={stops[activeTeam][showMapPicker].lat}
+          lng={stops[activeTeam][showMapPicker].lng}
+          onLocationSelect={(lat, lng) => {
+            updateStop(activeTeam, showMapPicker, 'lat', lat);
+            updateStop(activeTeam, showMapPicker, 'lng', lng);
+            setShowMapPicker(null);
+          }}
+          onClose={() => setShowMapPicker(null)}
+        />
+      )}
     </div>
   );
 };
