@@ -1,4 +1,28 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { MapContainer, TileLayer, Marker, Polyline, useMap, Circle } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix Leaflet default marker icons
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
+
+// Custom markers
+const createIcon = (emoji, size = 30) => L.divIcon({
+  html: `<div style="font-size: ${size}px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${emoji}</div>`,
+  className: 'custom-marker',
+  iconSize: [size, size],
+  iconAnchor: [size/2, size/2],
+});
+
+const targetIcon = createIcon('📍', 32);
+const sparkleIcon = createIcon('🦄', 28);
+const thunderIcon = createIcon('⚡', 28);
+const finishIcon = createIcon('🏆', 36);
 
 // Default coordinates around Clapperstile Gate / Cricket & Rugby clubs area
 const DEFAULT_STOPS = {
@@ -26,9 +50,9 @@ const DEFAULT_STOPS = {
   ]
 };
 
-const UNLOCK_RADIUS = 30; // meters
+const UNLOCK_RADIUS = 30;
 
-// Sound effects using Web Audio API
+// Sound effects
 const playSound = (type) => {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -72,7 +96,7 @@ const playSound = (type) => {
   }
 };
 
-// Haversine distance calculation
+// Haversine distance
 const getDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3;
   const φ1 = lat1 * Math.PI / 180;
@@ -84,7 +108,124 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-// Admin Panel Component
+// Bearing calculation
+const getBearing = (lat1, lon1, lat2, lon2) => {
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  const θ = Math.atan2(y, x);
+  return ((θ * 180 / Math.PI) + 360) % 360;
+};
+
+// Compass direction
+const getDirection = (bearing) => {
+  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  const index = Math.round(bearing / 45) % 8;
+  return directions[index];
+};
+
+// Map auto-fit
+const MapController = ({ position, target }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (position && target) {
+      const bounds = L.latLngBounds([
+        [position.lat, position.lng],
+        [target.lat, target.lng]
+      ]);
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17 });
+    } else if (target) {
+      map.setView([target.lat, target.lng], 16);
+    }
+  }, [position, target, map]);
+  
+  return null;
+};
+
+// Mini Map Component
+const MiniMap = ({ position, target, team, unlockRadius, isUnlocked }) => {
+  const isSparkle = team === 'sparkle';
+  const playerIcon = isSparkle ? sparkleIcon : thunderIcon;
+  const isFinish = target.name.includes('FINISH');
+  const destinationIcon = isFinish ? finishIcon : targetIcon;
+  
+  const lineColor = isSparkle ? '#ec4899' : '#3b82f6';
+  
+  return (
+    <div className="rounded-xl overflow-hidden border-2 border-white border-opacity-30 shadow-lg" style={{ height: '200px' }}>
+      <MapContainer
+        center={[target.lat, target.lng]}
+        zoom={16}
+        style={{ height: '100%', width: '100%' }}
+        zoomControl={false}
+        attributionControl={false}
+        dragging={true}
+        touchZoom={true}
+        scrollWheelZoom={false}
+      >
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <MapController position={position} target={target} />
+        
+        {/* Target location */}
+        <Marker position={[target.lat, target.lng]} icon={destinationIcon} />
+        
+        {/* Unlock radius circle */}
+        <Circle 
+          center={[target.lat, target.lng]} 
+          radius={unlockRadius}
+          pathOptions={{ 
+            color: isUnlocked ? '#22c55e' : lineColor, 
+            fillColor: isUnlocked ? '#22c55e' : lineColor,
+            fillOpacity: 0.15,
+            weight: 2,
+            dashArray: isUnlocked ? null : '5, 5'
+          }}
+        />
+        
+        {/* Current position */}
+        {position && (
+          <>
+            <Marker position={[position.lat, position.lng]} icon={playerIcon} />
+            {!isUnlocked && (
+              <Polyline 
+                positions={[[position.lat, position.lng], [target.lat, target.lng]]}
+                pathOptions={{ color: lineColor, weight: 3, opacity: 0.7, dashArray: '10, 10' }}
+              />
+            )}
+          </>
+        )}
+      </MapContainer>
+    </div>
+  );
+};
+
+// Direction Indicator
+const DirectionIndicator = ({ position, target, distance }) => {
+  if (!position || !target) return null;
+  
+  const bearing = getBearing(position.lat, position.lng, target.lat, target.lng);
+  const direction = getDirection(bearing);
+  
+  return (
+    <div className="flex items-center justify-center gap-4 py-3 bg-black bg-opacity-20 rounded-lg mt-2">
+      <div 
+        className="text-4xl transition-transform duration-300"
+        style={{ transform: `rotate(${bearing}deg)` }}
+      >
+        ⬆️
+      </div>
+      <div className="text-center">
+        <div className="text-2xl font-bold text-white">{Math.round(distance)}m</div>
+        <div className="text-sm text-white text-opacity-80">Head {direction}</div>
+      </div>
+    </div>
+  );
+};
+
+// Admin Panel
 const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose }) => {
   const [activeTeam, setActiveTeam] = useState('sparkle');
   const [editingStop, setEditingStop] = useState(null);
@@ -104,12 +245,6 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose })
     newStops[team] = [...newStops[team]];
     newStops[team][index] = { ...newStops[team][index], [field]: field === 'lat' || field === 'lng' ? parseFloat(value) : value };
     setStops(newStops);
-  };
-  
-  const resetToDefaults = () => {
-    if (confirm('Reset all stops to defaults?')) {
-      setStops(DEFAULT_STOPS);
-    }
   };
   
   const exportConfig = () => {
@@ -187,11 +322,11 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose })
             />
           </div>
           
-          <div className="space-y-2 max-h-96 overflow-auto">
+          <div className="space-y-2 max-h-80 overflow-auto">
             {stops[activeTeam].map((stop, index) => (
               <div key={stop.id} className="border rounded-lg p-3">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="font-bold">{stop.id}: {stop.name}</span>
+                  <span className="font-bold text-sm">{stop.id}: {stop.name}</span>
                   <button 
                     onClick={() => setEditingStop(editingStop === index ? null : index)}
                     className="text-blue-600 text-sm"
@@ -246,7 +381,7 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose })
                           updateStop(activeTeam, index, 'lat', pos.coords.latitude);
                           updateStop(activeTeam, index, 'lng', pos.coords.longitude);
                           alert('Location set to current position!');
-                        });
+                        }, (err) => alert('GPS error: ' + err.message));
                       }}
                       className="w-full bg-green-500 text-white py-2 rounded text-sm"
                     >
@@ -260,30 +395,30 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose })
         </div>
         
         <div className="flex flex-wrap gap-2">
-          <button onClick={exportConfig} className="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold">💾 Export Config</button>
+          <button onClick={exportConfig} className="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold">💾 Export</button>
           <label className="flex-1 bg-yellow-500 text-white py-3 rounded-lg font-bold text-center cursor-pointer">
-            📂 Import Config
+            📂 Import
             <input type="file" accept=".json" onChange={importConfig} className="hidden" />
           </label>
-          <button onClick={resetToDefaults} className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold">🔄 Reset Defaults</button>
+          <button onClick={() => { if(confirm('Reset all?')) setStops(DEFAULT_STOPS); }} className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold">🔄 Reset</button>
         </div>
       </div>
     </div>
   );
 };
 
-// Team Selection Screen
+// Team Selection
 const TeamSelect = ({ onSelect, onAdmin }) => (
   <div className="min-h-screen bg-gradient-to-b from-purple-900 via-blue-900 to-indigo-900 flex flex-col items-center justify-center p-4">
     <div className="text-center mb-8">
-      <h1 className="text-4xl font-bold text-white mb-2">✨ The Magical Heroes Mission ✨</h1>
+      <h1 className="text-3xl font-bold text-white mb-2">✨ The Magical Heroes Mission ✨</h1>
       <p className="text-purple-200">Bushey Park Boxing Day Treasure Hunt</p>
     </div>
     
     <div className="flex flex-col gap-4 w-full max-w-sm">
       <button
         onClick={() => onSelect('sparkle')}
-        className="bg-gradient-to-r from-pink-400 to-purple-500 text-white text-2xl py-8 px-6 rounded-2xl font-bold shadow-lg transform hover:scale-105 transition-transform"
+        className="bg-gradient-to-r from-pink-400 to-purple-500 text-white text-2xl py-8 px-6 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform"
       >
         🦄 Team Sparkle
         <p className="text-sm font-normal mt-1">The Unicorn Adventurers</p>
@@ -291,47 +426,40 @@ const TeamSelect = ({ onSelect, onAdmin }) => (
       
       <button
         onClick={() => onSelect('thunder')}
-        className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-2xl py-8 px-6 rounded-2xl font-bold shadow-lg transform hover:scale-105 transition-transform"
+        className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-2xl py-8 px-6 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform"
       >
         ⚡ Team Thunder
         <p className="text-sm font-normal mt-1">The Superhero Squad</p>
       </button>
     </div>
     
-    <button
-      onClick={onAdmin}
-      className="mt-8 text-gray-400 text-sm underline"
-    >
+    <button onClick={onAdmin} className="mt-8 text-gray-400 text-sm underline">
       Admin Setup
     </button>
   </div>
 );
 
-// Progress Bar Component
+// Progress Bar
 const ProgressBar = ({ current, total, team }) => {
   const percentage = (current / total) * 100;
   const bgColor = team === 'sparkle' ? 'bg-pink-500' : 'bg-blue-500';
   
   return (
     <div className="w-full bg-gray-700 rounded-full h-3 mb-2">
-      <div 
-        className={`${bgColor} h-3 rounded-full transition-all duration-500`}
-        style={{ width: `${percentage}%` }}
-      />
+      <div className={`${bgColor} h-3 rounded-full transition-all duration-500`} style={{ width: `${percentage}%` }} />
     </div>
   );
 };
 
-// Clue Card Component
-const ClueCard = ({ stop, team, distance, isUnlocked, onUnlock }) => {
+// Clue Card
+const ClueCard = ({ stop, team, distance, isUnlocked, onUnlock, position, unlockRadius, nextStop }) => {
   const [showHint, setShowHint] = useState(false);
-  const isInRange = distance !== null && distance <= UNLOCK_RADIUS;
+  const [showMap, setShowMap] = useState(true);
+  const isInRange = distance !== null && distance <= unlockRadius;
   
   const bgGradient = team === 'sparkle' 
     ? 'from-pink-100 to-purple-100 border-pink-300' 
     : 'from-blue-100 to-cyan-100 border-blue-300';
-  
-  const buttonColor = team === 'sparkle' ? 'bg-pink-500' : 'bg-blue-500';
   
   useEffect(() => {
     if (isInRange && !isUnlocked) {
@@ -339,28 +467,34 @@ const ClueCard = ({ stop, team, distance, isUnlocked, onUnlock }) => {
     }
   }, [isInRange, isUnlocked, onUnlock]);
   
+  const mapTarget = isUnlocked && nextStop ? nextStop : stop;
+  const mapDistance = isUnlocked && nextStop && position 
+    ? getDistance(position.lat, position.lng, nextStop.lat, nextStop.lng)
+    : distance;
+  
+  const showMapSection = isUnlocked ? nextStop : true;
+  const isLastStop = !nextStop && isUnlocked;
+  
   return (
-    <div className={`bg-gradient-to-br ${bgGradient} rounded-2xl p-5 shadow-lg border-2 mb-4`}>
+    <div className={`bg-gradient-to-br ${bgGradient} rounded-2xl p-4 shadow-lg border-2 mb-4`}>
       <div className="flex justify-between items-start mb-3">
         <h3 className="font-bold text-lg text-gray-800">{stop.name}</h3>
         {isUnlocked && <span className="text-2xl">✅</span>}
       </div>
       
       {isUnlocked ? (
-        <div className="whitespace-pre-line text-gray-700 text-lg leading-relaxed font-medium">
+        <div className="whitespace-pre-line text-gray-700 text-lg leading-relaxed font-medium mb-3">
           {stop.clue}
         </div>
       ) : (
         <div className="text-center py-4">
-          <div className="text-6xl mb-3">🔒</div>
+          <div className="text-5xl mb-3">🔒</div>
           {distance !== null ? (
             <>
-              <p className="text-gray-600 mb-2">
-                {isInRange ? 'You\'re here!' : `${Math.round(distance)}m away`}
+              <p className="text-gray-600 mb-1 text-lg font-medium">
+                {isInRange ? "You're here!" : `${Math.round(distance)}m away`}
               </p>
-              {!isInRange && (
-                <p className="text-sm text-gray-500">Get within {UNLOCK_RADIUS}m to unlock</p>
-              )}
+              {!isInRange && <p className="text-sm text-gray-500">Get within {unlockRadius}m to unlock</p>}
             </>
           ) : (
             <p className="text-gray-600">Waiting for GPS...</p>
@@ -368,11 +502,44 @@ const ClueCard = ({ stop, team, distance, isUnlocked, onUnlock }) => {
         </div>
       )}
       
+      {/* Map Section */}
+      {showMapSection && (
+        <div className="mt-3">
+          <button 
+            onClick={() => setShowMap(!showMap)}
+            className="text-sm text-gray-600 mb-2 flex items-center gap-1"
+          >
+            🗺️ {showMap ? 'Hide' : 'Show'} Map
+            {isUnlocked && nextStop && (
+              <span className="text-xs bg-gray-200 px-2 py-0.5 rounded-full ml-1">Next: {nextStop.name}</span>
+            )}
+          </button>
+          
+          {showMap && (
+            <>
+              <MiniMap 
+                position={position} 
+                target={mapTarget} 
+                team={team}
+                unlockRadius={unlockRadius}
+                isUnlocked={isLastStop}
+              />
+              {position && mapDistance !== null && (
+                <DirectionIndicator position={position} target={mapTarget} distance={mapDistance} />
+              )}
+            </>
+          )}
+        </div>
+      )}
+      
+      {isLastStop && (
+        <div className="mt-3 p-3 bg-green-100 rounded-lg text-center">
+          <p className="text-green-800 font-bold">🎉 You've reached the final location!</p>
+        </div>
+      )}
+      
       {!isUnlocked && (
-        <button
-          onClick={() => setShowHint(!showHint)}
-          className="mt-3 text-sm text-gray-500 underline"
-        >
+        <button onClick={() => setShowHint(!showHint)} className="mt-3 text-sm text-gray-500 underline">
           {showHint ? 'Hide hint' : 'Need a hint?'}
         </button>
       )}
@@ -384,10 +551,10 @@ const ClueCard = ({ stop, team, distance, isUnlocked, onUnlock }) => {
   );
 };
 
-// Main Game Screen
-const GameScreen = ({ team, stops, onBack }) => {
+// Game Screen
+const GameScreen = ({ team, stops, unlockRadius, onBack }) => {
   const [currentStop, setCurrentStop] = useState(0);
-  const [unlockedStops, setUnlockedStops] = useState([true]); // First clue always unlocked
+  const [unlockedStops, setUnlockedStops] = useState([true]);
   const [position, setPosition] = useState(null);
   const [gpsError, setGpsError] = useState(null);
   const [distances, setDistances] = useState([]);
@@ -399,34 +566,23 @@ const GameScreen = ({ team, stops, onBack }) => {
     ? 'from-pink-600 via-purple-600 to-pink-700'
     : 'from-blue-700 via-cyan-700 to-blue-800';
   
-  // GPS watching
   useEffect(() => {
     let watchId;
     
-    const startWatching = () => {
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-          setGpsError(null);
-          
-          // Calculate distances to all stops
-          const newDistances = teamStops.map(stop => 
-            getDistance(pos.coords.latitude, pos.coords.longitude, stop.lat, stop.lng)
-          );
-          setDistances(newDistances);
-        },
-        (err) => {
-          setGpsError(err.message);
-        },
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
-      );
-    };
+    watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGpsError(null);
+        const newDistances = teamStops.map(stop => 
+          getDistance(pos.coords.latitude, pos.coords.longitude, stop.lat, stop.lng)
+        );
+        setDistances(newDistances);
+      },
+      (err) => setGpsError(err.message),
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+    );
     
-    startWatching();
-    
-    return () => {
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-    };
+    return () => { if (watchId) navigator.geolocation.clearWatch(watchId); };
   }, [teamStops]);
   
   const handleUnlock = useCallback((index) => {
@@ -435,60 +591,50 @@ const GameScreen = ({ team, stops, onBack }) => {
       newUnlocked[index] = true;
       setUnlockedStops(newUnlocked);
       
-      // Play sound
       if (index === teamStops.length - 1) {
         playSound('victory');
       } else {
         playSound(team);
       }
       
-      // Auto advance to next clue
       if (index === currentStop && index < teamStops.length - 1) {
         setTimeout(() => setCurrentStop(index + 1), 1500);
       }
     }
   }, [unlockedStops, currentStop, teamStops.length, team]);
   
-  // Admin override to unlock current stop
-  const forceUnlock = () => {
-    handleUnlock(currentStop);
-  };
-  
   const unlockedCount = unlockedStops.filter(Boolean).length;
   const isComplete = unlockedCount === teamStops.length;
+  const nextStop = currentStop < teamStops.length - 1 ? teamStops[currentStop + 1] : null;
   
   return (
     <div className={`min-h-screen bg-gradient-to-b ${bgGradient}`}>
       {/* Header */}
-      <div className="sticky top-0 bg-black bg-opacity-30 backdrop-blur-sm p-4 z-10">
+      <div className="sticky top-0 bg-black bg-opacity-30 backdrop-blur-sm p-3 z-10">
         <div className="flex justify-between items-center mb-2">
-          <button onClick={onBack} className="text-white text-2xl">←</button>
-          <h1 className="text-white font-bold text-xl">
+          <button onClick={onBack} className="text-white text-2xl px-2">←</button>
+          <h1 className="text-white font-bold text-lg">
             {isSparkle ? '🦄 Team Sparkle' : '⚡ Team Thunder'}
           </h1>
-          <span className="text-white font-bold">{unlockedCount}/{teamStops.length}</span>
+          <span className="text-white font-bold px-2">{unlockedCount}/{teamStops.length}</span>
         </div>
         <ProgressBar current={unlockedCount} total={teamStops.length} team={team} />
       </div>
       
-      {/* GPS Status */}
       {gpsError && (
         <div className="mx-4 mt-2 bg-red-500 text-white p-3 rounded-lg text-sm">
           GPS Error: {gpsError}
         </div>
       )}
       
-      {/* Victory Screen */}
       {isComplete && (
         <div className="mx-4 mt-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl p-6 text-center shadow-xl">
-          <div className="text-6xl mb-4">🏆</div>
+          <div className="text-5xl mb-3">🏆</div>
           <h2 className="text-2xl font-bold text-white mb-2">MISSION COMPLETE!</h2>
           <p className="text-white">
-            {isSparkle 
-              ? 'You found the Enchanted Crystal Half!' 
-              : 'You recovered the Power Crystal Half!'}
+            {isSparkle ? 'You found the Enchanted Crystal Half!' : 'You recovered the Power Crystal Half!'}
           </p>
-          <p className="text-yellow-100 mt-3">Now find the Victory Tree and wait for the other team!</p>
+          <p className="text-yellow-100 mt-2 text-sm">Now find the Victory Tree and wait for the other team!</p>
         </div>
       )}
       
@@ -519,12 +665,14 @@ const GameScreen = ({ team, stops, onBack }) => {
           distance={distances[currentStop] ?? null}
           isUnlocked={unlockedStops[currentStop]}
           onUnlock={() => handleUnlock(currentStop)}
+          position={position}
+          unlockRadius={unlockRadius}
+          nextStop={unlockedStops[currentStop] ? nextStop : null}
         />
         
-        {/* Admin Override Button */}
         {!unlockedStops[currentStop] && (
           <button
-            onClick={forceUnlock}
+            onClick={() => handleUnlock(currentStop)}
             className="w-full bg-gray-800 bg-opacity-50 text-white py-3 rounded-lg text-sm"
           >
             🔓 Adult Override (Unlock This Clue)
@@ -539,7 +687,7 @@ const GameScreen = ({ team, stops, onBack }) => {
           disabled={currentStop === 0}
           className="flex-1 bg-white bg-opacity-20 text-white py-3 rounded-lg font-bold disabled:opacity-30"
         >
-          ← Previous
+          ← Prev
         </button>
         <button
           onClick={() => setCurrentStop(Math.min(teamStops.length - 1, currentStop + 1))}
@@ -562,20 +710,15 @@ export default function App() {
     try {
       const saved = localStorage.getItem('treasureHuntStops');
       return saved ? JSON.parse(saved) : DEFAULT_STOPS;
-    } catch {
-      return DEFAULT_STOPS;
-    }
+    } catch { return DEFAULT_STOPS; }
   });
   const [unlockRadius, setUnlockRadius] = useState(() => {
     try {
       const saved = localStorage.getItem('treasureHuntRadius');
       return saved ? parseInt(saved) : UNLOCK_RADIUS;
-    } catch {
-      return UNLOCK_RADIUS;
-    }
+    } catch { return UNLOCK_RADIUS; }
   });
   
-  // Persist settings
   useEffect(() => {
     localStorage.setItem('treasureHuntStops', JSON.stringify(stops));
   }, [stops]);
@@ -584,26 +727,14 @@ export default function App() {
     localStorage.setItem('treasureHuntRadius', unlockRadius.toString());
   }, [unlockRadius]);
   
-  const handleTeamSelect = (team) => {
-    setSelectedTeam(team);
-    setScreen('game');
-  };
-  
   return (
     <div className="font-sans">
       {screen === 'select' && (
-        <TeamSelect 
-          onSelect={handleTeamSelect} 
-          onAdmin={() => setShowAdmin(true)} 
-        />
+        <TeamSelect onSelect={(team) => { setSelectedTeam(team); setScreen('game'); }} onAdmin={() => setShowAdmin(true)} />
       )}
       
       {screen === 'game' && selectedTeam && (
-        <GameScreen 
-          team={selectedTeam} 
-          stops={stops}
-          onBack={() => setScreen('select')} 
-        />
+        <GameScreen team={selectedTeam} stops={stops} unlockRadius={unlockRadius} onBack={() => setScreen('select')} />
       )}
       
       {showAdmin && (
