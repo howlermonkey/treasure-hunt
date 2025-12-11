@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { db } from './firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Fix Leaflet default marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -226,12 +228,13 @@ const DirectionIndicator = ({ position, target, distance }) => {
 };
 
 // Admin Panel
-const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose }) => {
+const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, onSaveToCloud }) => {
   const [activeTeam, setActiveTeam] = useState('sparkle');
   const [editingStop, setEditingStop] = useState(null);
   const [adminPassword, setAdminPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  
+  const [saving, setSaving] = useState(false);
+
   const handleAuth = () => {
     if (adminPassword === 'bushey2025') {
       setIsAuthenticated(true);
@@ -239,14 +242,25 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose })
       alert('Incorrect password');
     }
   };
-  
+
   const updateStop = (team, index, field, value) => {
     const newStops = { ...stops };
     newStops[team] = [...newStops[team]];
     newStops[team][index] = { ...newStops[team][index], [field]: field === 'lat' || field === 'lng' ? parseFloat(value) : value };
     setStops(newStops);
   };
-  
+
+  const saveToCloud = async () => {
+    setSaving(true);
+    try {
+      await onSaveToCloud();
+      alert('Configuration saved to cloud!');
+    } catch (err) {
+      alert('Failed to save: ' + err.message);
+    }
+    setSaving(false);
+  };
+
   const exportConfig = () => {
     const config = { stops, unlockRadius };
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
@@ -256,7 +270,7 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose })
     a.download = 'treasure-hunt-config.json';
     a.click();
   };
-  
+
   const importConfig = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -394,6 +408,15 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose })
           </div>
         </div>
         
+        <div className="flex flex-wrap gap-2 mb-2">
+          <button
+            onClick={saveToCloud}
+            disabled={saving}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold disabled:opacity-50"
+          >
+            {saving ? '☁️ Saving...' : '☁️ Save to Cloud'}
+          </button>
+        </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={exportConfig} className="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold">💾 Export</button>
           <label className="flex-1 bg-yellow-500 text-white py-3 rounded-lg font-bold text-center cursor-pointer">
@@ -742,37 +765,86 @@ export default function App() {
   const [screen, setScreen] = useState('select');
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [showAdmin, setShowAdmin] = useState(false);
-  const [stops, setStops] = useState(() => {
-    try {
-      const saved = localStorage.getItem('treasureHuntStops');
-      return saved ? JSON.parse(saved) : DEFAULT_STOPS;
-    } catch { return DEFAULT_STOPS; }
-  });
-  const [unlockRadius, setUnlockRadius] = useState(() => {
-    try {
-      const saved = localStorage.getItem('treasureHuntRadius');
-      return saved ? parseInt(saved) : UNLOCK_RADIUS;
-    } catch { return UNLOCK_RADIUS; }
-  });
-  
+  const [loading, setLoading] = useState(true);
+  const [stops, setStops] = useState(DEFAULT_STOPS);
+  const [unlockRadius, setUnlockRadius] = useState(UNLOCK_RADIUS);
+
+  // Load config from Firestore on mount
   useEffect(() => {
-    localStorage.setItem('treasureHuntStops', JSON.stringify(stops));
-  }, [stops]);
-  
+    const loadConfig = async () => {
+      try {
+        const docRef = doc(db, 'config', 'treasureHunt');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.stops) setStops(data.stops);
+          if (data.unlockRadius) setUnlockRadius(data.unlockRadius);
+        } else {
+          // Fallback to localStorage if no cloud config
+          const savedStops = localStorage.getItem('treasureHuntStops');
+          const savedRadius = localStorage.getItem('treasureHuntRadius');
+          if (savedStops) setStops(JSON.parse(savedStops));
+          if (savedRadius) setUnlockRadius(parseInt(savedRadius));
+        }
+      } catch (err) {
+        console.log('Could not load from cloud, using local:', err);
+        // Fallback to localStorage
+        try {
+          const savedStops = localStorage.getItem('treasureHuntStops');
+          const savedRadius = localStorage.getItem('treasureHuntRadius');
+          if (savedStops) setStops(JSON.parse(savedStops));
+          if (savedRadius) setUnlockRadius(parseInt(savedRadius));
+        } catch { /* ignore */ }
+      }
+      setLoading(false);
+    };
+    loadConfig();
+  }, []);
+
+  // Also save to localStorage as backup
   useEffect(() => {
-    localStorage.setItem('treasureHuntRadius', unlockRadius.toString());
-  }, [unlockRadius]);
-  
+    if (!loading) {
+      localStorage.setItem('treasureHuntStops', JSON.stringify(stops));
+    }
+  }, [stops, loading]);
+
+  useEffect(() => {
+    if (!loading) {
+      localStorage.setItem('treasureHuntRadius', unlockRadius.toString());
+    }
+  }, [unlockRadius, loading]);
+
+  // Save to Firestore
+  const saveToCloud = async () => {
+    const docRef = doc(db, 'config', 'treasureHunt');
+    await setDoc(docRef, {
+      stops,
+      unlockRadius,
+      updatedAt: new Date().toISOString()
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-red-900 via-green-900 to-red-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="text-5xl mb-4">🎄</div>
+          <p>Loading treasure hunt...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="font-sans">
       {screen === 'select' && (
         <TeamSelect onSelect={(team) => { setSelectedTeam(team); setScreen('game'); }} onAdmin={() => setShowAdmin(true)} />
       )}
-      
+
       {screen === 'game' && selectedTeam && (
         <GameScreen team={selectedTeam} stops={stops} unlockRadius={unlockRadius} onBack={() => setScreen('select')} />
       )}
-      
+
       {showAdmin && (
         <AdminPanel
           stops={stops}
@@ -780,6 +852,7 @@ export default function App() {
           unlockRadius={unlockRadius}
           setUnlockRadius={setUnlockRadius}
           onClose={() => setShowAdmin(false)}
+          onSaveToCloud={saveToCloud}
         />
       )}
     </div>
