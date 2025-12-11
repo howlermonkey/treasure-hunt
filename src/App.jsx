@@ -407,35 +407,71 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose })
   );
 };
 
+// Snowflake component
+const Snowflakes = () => (
+  <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+    {[...Array(30)].map((_, i) => (
+      <div
+        key={i}
+        className="absolute text-white opacity-70 animate-snowfall"
+        style={{
+          left: `${Math.random() * 100}%`,
+          animationDelay: `${Math.random() * 5}s`,
+          animationDuration: `${5 + Math.random() * 10}s`,
+          fontSize: `${10 + Math.random() * 15}px`,
+        }}
+      >
+        ❄
+      </div>
+    ))}
+    <style>{`
+      @keyframes snowfall {
+        0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
+        10% { opacity: 0.7; }
+        90% { opacity: 0.7; }
+        100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+      }
+      .animate-snowfall {
+        animation: snowfall linear infinite;
+      }
+    `}</style>
+  </div>
+);
+
 // Team Selection
 const TeamSelect = ({ onSelect, onAdmin }) => (
-  <div className="min-h-screen bg-gradient-to-b from-purple-900 via-blue-900 to-indigo-900 flex flex-col items-center justify-center p-4">
-    <div className="text-center mb-8">
-      <h1 className="text-3xl font-bold text-white mb-2">✨ The Magical Heroes Mission ✨</h1>
-      <p className="text-purple-200">Bushey Park Boxing Day Treasure Hunt</p>
+  <div className="min-h-screen bg-gradient-to-b from-red-900 via-green-900 to-red-900 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <Snowflakes />
+    <div className="text-center mb-8 relative z-10">
+      <div className="text-5xl mb-4">🎄</div>
+      <h1 className="text-3xl font-bold text-white mb-2">✨ Christmas Treasure Hunt ✨</h1>
+      <p className="text-green-200">🎅 Bushey Park Boxing Day Adventure 🦌</p>
+      <p className="text-yellow-300 text-sm mt-2">⭐ Find the hidden Christmas treasures! ⭐</p>
     </div>
     
-    <div className="flex flex-col gap-4 w-full max-w-sm">
+    <div className="flex flex-col gap-4 w-full max-w-sm relative z-10">
       <button
         onClick={() => onSelect('sparkle')}
-        className="bg-gradient-to-r from-pink-400 to-purple-500 text-white text-2xl py-8 px-6 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform"
+        className="bg-gradient-to-r from-red-500 to-red-700 text-white text-2xl py-8 px-6 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform border-4 border-yellow-400"
       >
-        🦄 Team Sparkle
-        <p className="text-sm font-normal mt-1">The Unicorn Adventurers</p>
+        🦄👸 Team Sparkle
+        <p className="text-sm font-normal mt-1">🎁 Unicorns & Princesses 🎁</p>
       </button>
-      
+
       <button
         onClick={() => onSelect('thunder')}
-        className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-2xl py-8 px-6 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform"
+        className="bg-gradient-to-r from-green-600 to-green-800 text-white text-2xl py-8 px-6 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform border-4 border-yellow-400"
       >
         ⚡ Team Thunder
-        <p className="text-sm font-normal mt-1">The Superhero Squad</p>
+        <p className="text-sm font-normal mt-1">🎁 The Superhero Squad 🎁</p>
       </button>
     </div>
-    
-    <button onClick={onAdmin} className="mt-8 text-gray-400 text-sm underline">
-      Admin Setup
+
+    <button onClick={onAdmin} className="mt-8 text-yellow-400 text-sm underline relative z-10">
+      🔧 Admin Setup
     </button>
+
+    <p className="text-white text-opacity-60 text-xs mt-4 relative z-10">🎄 Merry Christmas! 🎄</p>
   </div>
 );
 
@@ -614,7 +650,7 @@ const GameScreen = ({ team, stops, unlockRadius, onBack }) => {
         <div className="flex justify-between items-center mb-2">
           <button onClick={onBack} className="text-white text-2xl px-2">←</button>
           <h1 className="text-white font-bold text-lg">
-            {isSparkle ? '🦄 Team Sparkle' : '⚡ Team Thunder'}
+            {isSparkle ? '🦄👸 Team Sparkle' : '⚡ Team Thunder'}
           </h1>
           <span className="text-white font-bold px-2">{unlockedCount}/{teamStops.length}</span>
         </div>
@@ -628,13 +664,13 @@ const GameScreen = ({ team, stops, unlockRadius, onBack }) => {
       )}
       
       {isComplete && (
-        <div className="mx-4 mt-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl p-6 text-center shadow-xl">
-          <div className="text-5xl mb-3">🏆</div>
-          <h2 className="text-2xl font-bold text-white mb-2">MISSION COMPLETE!</h2>
+        <div className="mx-4 mt-4 bg-gradient-to-r from-red-600 to-green-600 rounded-2xl p-6 text-center shadow-xl border-4 border-yellow-400">
+          <div className="text-5xl mb-3">🎄🏆🎄</div>
+          <h2 className="text-2xl font-bold text-white mb-2">CHRISTMAS MISSION COMPLETE!</h2>
           <p className="text-white">
-            {isSparkle ? 'You found the Enchanted Crystal Half!' : 'You recovered the Power Crystal Half!'}
+            {isSparkle ? '🎁 You found the Enchanted Christmas Crystal! 🎁' : '🎁 You recovered the Christmas Power Crystal! 🎁'}
           </p>
-          <p className="text-yellow-100 mt-2 text-sm">Now find the Victory Tree and wait for the other team!</p>
+          <p className="text-yellow-100 mt-2 text-sm">🎅 Now find the Victory Tree and wait for the other team! 🦌</p>
         </div>
       )}
       
