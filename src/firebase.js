@@ -2,12 +2,12 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCOc8-jCmrprZNfv0Zri98M7egpqOX1S1g",
-  authDomain: "treasure-hunt-5ea19.firebaseapp.com",
-  projectId: "treasure-hunt-5ea19",
-  storageBucket: "treasure-hunt-5ea19.firebasestorage.app",
-  messagingSenderId: "998533352012",
-  appId: "1:998533352012:web:66c51592756ce7df0342e9"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
