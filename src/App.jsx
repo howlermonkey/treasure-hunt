@@ -1,0 +1,620 @@
+import React, { useState, useEffect, useCallback } from 'react';
+
+// Default coordinates around Clapperstile Gate / Cricket & Rugby clubs area
+const DEFAULT_STOPS = {
+  sparkle: [
+    { id: 'S0', name: 'START: Clapperstile Gate', lat: 51.4245, lng: -0.3442, clue: 'Little unicorns, brave and true,\nA magical quest awaits for you!\nFind the BIG tree with bark so old,\nWhere the first secret waits to be told.', hint: 'Look for the biggest tree you can see!' },
+    { id: 'S1', name: 'Large Oak Tree', lat: 51.4238, lng: -0.3448, clue: 'Well done! You found the oak so tall!\nBut unicorns must answer the call!\nWhere do tired walkers sit and rest?\nFind the BENCH and continue your quest!', hint: 'Look for somewhere to sit down!' },
+    { id: 'S2', name: 'Bench by Path', lat: 51.4232, lng: -0.3455, clue: 'Hooray! Now look across the green,\nThe prettiest meadow you\'ve ever seen!\nWalk to the middle, twirl around,\nThen look DOWN on the ground!', hint: 'Walk to the open grass and twirl!' },
+    { id: 'S3', name: 'Open Meadow (Adult Rest)', lat: 51.4225, lng: -0.3462, clue: 'Magic unicorns, you\'re doing great!\nNow trot along - don\'t be late!\nOther heroes might be near...\nFind where PATHS MEET - the clue is here!', hint: 'Walk to where paths cross!' },
+    { id: 'S4', name: 'Crossing Point ⭐', lat: 51.4228, lng: -0.3470, clue: 'Did you see the superhero team?\nYou\'re all working for the same dream!\nNow find the FENCE near where balls fly,\nYour next clue waits - give it a try!', hint: 'Look for a fence near sports area!' },
+    { id: 'S5', name: 'Cricket Club Fence', lat: 51.4235, lng: -0.3478, clue: 'Wonderful work, you clever pair!\nNow look for TWO TREES standing there,\nSide by side like unicorn friends,\nYour adventure nearly ends!', hint: 'Find two trees close together!' },
+    { id: 'S6', name: 'Twin Trees (Adult Rest)', lat: 51.4240, lng: -0.3485, clue: 'You\'re amazing unicorn explorers!\nNow head towards where RUGBY players\nRun and jump and have their fun,\nYour quest is almost done!', hint: 'Look for the rugby area!' },
+    { id: 'S7', name: 'Near Rugby Club', lat: 51.4248, lng: -0.3478, clue: 'One more clue! You\'re nearly there!\nThe VICTORY TREE is waiting where\nBoth teams will meet to save the day!\nFind the BIGGEST tree this way!', hint: 'Look for the biggest, best tree!' },
+    { id: 'S8', name: 'FINISH: Victory Tree 🏆', lat: 51.4252, lng: -0.3465, clue: '🎉 YOU FOUND THE ENCHANTED CRYSTAL! 🎉\n\nWait for Team Thunder to arrive...\nTogether you will save Bushy Park!', hint: 'You did it!' },
+  ],
+  thunder: [
+    { id: 'T0', name: 'START: Clapperstile Gate', lat: 51.4245, lng: -0.3442, clue: 'ATTENTION HEROES!\nMission: Recover the Power Crystal\nYour first checkpoint: The CRICKET BUILDING\nLook for a structure near the sports fields.\nMOVE OUT!', hint: 'Find the cricket pavilion!' },
+    { id: 'T1', name: 'Cricket Pavilion', lat: 51.4250, lng: -0.3450, clue: 'CHECKPOINT REACHED!\nNew coordinates received:\nProceed to the RUGBY POSTS\nLook for the tall white goal posts.\nSTAY ALERT!', hint: 'Find the rugby goal posts!' },
+    { id: 'T2', name: 'Rugby Posts', lat: 51.4258, lng: -0.3458, clue: 'EXCELLENT WORK, HEROES!\nStealth mission required:\nAdvance to the OPEN FIELD\nRetrieve intel from the marker.\nGO GO GO!', hint: 'Head to the open field!' },
+    { id: 'T3', name: 'Open Field (Adult Rest)', lat: 51.4262, lng: -0.3468, clue: 'INTEL RETRIEVED!\nWarning: Unicorn team nearby\nProceed to PATH JUNCTION\nwhere routes cross.\nBE BRAVE!', hint: 'Find where paths meet!' },
+    { id: 'T4', name: 'Crossing Point ⭐', lat: 51.4228, lng: -0.3470, clue: 'OTHER AGENTS SPOTTED!\nContinue mission to TREE CLUSTER\nMultiple trees grouped together\nto the WEST.\nKEEP MOVING!', hint: 'Find a group of trees!' },
+    { id: 'T5', name: 'Tree Cluster', lat: 51.4222, lng: -0.3480, clue: 'ALMOST THERE, HEROES!\nFinal stealth zone ahead:\nLocate the BENCH AREA\nYour target awaits.\nSTAY LOW!', hint: 'Find a bench!' },
+    { id: 'T6', name: 'Bench Area (Adult Rest)', lat: 51.4218, lng: -0.3472, clue: 'PERFECT EXECUTION!\nProceed to PATH JUNCTION\nwhere two paths meet.\nSTRIKE A POSE!\nPHOTO OP!', hint: 'Find another path junction!' },
+    { id: 'T7', name: 'Path Junction', lat: 51.4225, lng: -0.3460, clue: 'FINAL MISSION BRIEFING!\nThe VICTORY TREE awaits!\nLook for the BIGGEST TREE nearby.\nThe Power Crystal is CLOSE!\nCOMPLETE THE MISSION!', hint: 'Find the biggest tree!' },
+    { id: 'T8', name: 'FINISH: Victory Tree 🏆', lat: 51.4252, lng: -0.3465, clue: '🎉 YOU FOUND THE POWER CRYSTAL! 🎉\n\nWait for Team Sparkle to arrive...\nTogether you will save Bushy Park!', hint: 'You did it!' },
+  ]
+};
+
+const UNLOCK_RADIUS = 30; // meters
+
+// Sound effects using Web Audio API
+const playSound = (type) => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    if (type === 'sparkle') {
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+      osc.frequency.exponentialRampToValueAtTime(1600, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } else if (type === 'thunder') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(150, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+    } else if (type === 'victory') {
+      const notes = [523, 659, 784, 1047];
+      notes.forEach((freq, i) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.15);
+        g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.3);
+        o.start(ctx.currentTime + i * 0.15);
+        o.stop(ctx.currentTime + i * 0.15 + 0.3);
+      });
+    }
+  } catch (e) {
+    console.log('Audio not available');
+  }
+};
+
+// Haversine distance calculation
+const getDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3;
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
+// Admin Panel Component
+const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose }) => {
+  const [activeTeam, setActiveTeam] = useState('sparkle');
+  const [editingStop, setEditingStop] = useState(null);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  const handleAuth = () => {
+    if (adminPassword === 'bushey2025') {
+      setIsAuthenticated(true);
+    } else {
+      alert('Incorrect password');
+    }
+  };
+  
+  const updateStop = (team, index, field, value) => {
+    const newStops = { ...stops };
+    newStops[team] = [...newStops[team]];
+    newStops[team][index] = { ...newStops[team][index], [field]: field === 'lat' || field === 'lng' ? parseFloat(value) : value };
+    setStops(newStops);
+  };
+  
+  const resetToDefaults = () => {
+    if (confirm('Reset all stops to defaults?')) {
+      setStops(DEFAULT_STOPS);
+    }
+  };
+  
+  const exportConfig = () => {
+    const config = { stops, unlockRadius };
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'treasure-hunt-config.json';
+    a.click();
+  };
+  
+  const importConfig = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const config = JSON.parse(event.target.result);
+          if (config.stops) setStops(config.stops);
+          if (config.unlockRadius) setUnlockRadius(config.unlockRadius);
+          alert('Configuration imported!');
+        } catch (err) {
+          alert('Invalid config file');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+  
+  if (!isAuthenticated) {
+    return (
+      <div className="fixed inset-0 bg-gray-900 bg-opacity-95 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
+          <h2 className="text-2xl font-bold mb-4 text-gray-800">🔐 Admin Access</h2>
+          <input
+            type="password"
+            placeholder="Enter admin password"
+            value={adminPassword}
+            onChange={(e) => setAdminPassword(e.target.value)}
+            className="w-full p-3 border rounded-lg mb-4"
+            onKeyPress={(e) => e.key === 'Enter' && handleAuth()}
+          />
+          <div className="flex gap-2">
+            <button onClick={handleAuth} className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold">Enter</button>
+            <button onClick={onClose} className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-bold">Cancel</button>
+          </div>
+          <p className="text-xs text-gray-500 mt-3 text-center">Default: bushey2025</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="fixed inset-0 bg-gray-900 bg-opacity-95 z-50 overflow-auto">
+      <div className="max-w-4xl mx-auto p-4">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold text-white">⚙️ Admin Panel</h2>
+          <button onClick={onClose} className="text-white text-3xl">×</button>
+        </div>
+        
+        <div className="bg-white rounded-xl p-4 mb-4">
+          <div className="flex gap-2 mb-4">
+            <button onClick={() => setActiveTeam('sparkle')} className={`flex-1 py-2 rounded-lg font-bold ${activeTeam === 'sparkle' ? 'bg-pink-500 text-white' : 'bg-gray-200'}`}>🦄 Sparkle</button>
+            <button onClick={() => setActiveTeam('thunder')} className={`flex-1 py-2 rounded-lg font-bold ${activeTeam === 'thunder' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>⚡ Thunder</button>
+          </div>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-bold mb-1">Unlock Radius (meters)</label>
+            <input
+              type="number"
+              value={unlockRadius}
+              onChange={(e) => setUnlockRadius(parseInt(e.target.value))}
+              className="w-full p-2 border rounded"
+            />
+          </div>
+          
+          <div className="space-y-2 max-h-96 overflow-auto">
+            {stops[activeTeam].map((stop, index) => (
+              <div key={stop.id} className="border rounded-lg p-3">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-bold">{stop.id}: {stop.name}</span>
+                  <button 
+                    onClick={() => setEditingStop(editingStop === index ? null : index)}
+                    className="text-blue-600 text-sm"
+                  >
+                    {editingStop === index ? 'Close' : 'Edit'}
+                  </button>
+                </div>
+                {editingStop === index && (
+                  <div className="space-y-2 mt-2 pt-2 border-t">
+                    <input
+                      type="text"
+                      value={stop.name}
+                      onChange={(e) => updateStop(activeTeam, index, 'name', e.target.value)}
+                      placeholder="Name"
+                      className="w-full p-2 border rounded text-sm"
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        step="0.0001"
+                        value={stop.lat}
+                        onChange={(e) => updateStop(activeTeam, index, 'lat', e.target.value)}
+                        placeholder="Latitude"
+                        className="flex-1 p-2 border rounded text-sm"
+                      />
+                      <input
+                        type="number"
+                        step="0.0001"
+                        value={stop.lng}
+                        onChange={(e) => updateStop(activeTeam, index, 'lng', e.target.value)}
+                        placeholder="Longitude"
+                        className="flex-1 p-2 border rounded text-sm"
+                      />
+                    </div>
+                    <textarea
+                      value={stop.clue}
+                      onChange={(e) => updateStop(activeTeam, index, 'clue', e.target.value)}
+                      placeholder="Clue text"
+                      rows={3}
+                      className="w-full p-2 border rounded text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={stop.hint}
+                      onChange={(e) => updateStop(activeTeam, index, 'hint', e.target.value)}
+                      placeholder="Hint"
+                      className="w-full p-2 border rounded text-sm"
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.geolocation.getCurrentPosition((pos) => {
+                          updateStop(activeTeam, index, 'lat', pos.coords.latitude);
+                          updateStop(activeTeam, index, 'lng', pos.coords.longitude);
+                          alert('Location set to current position!');
+                        });
+                      }}
+                      className="w-full bg-green-500 text-white py-2 rounded text-sm"
+                    >
+                      📍 Set to Current Location
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap gap-2">
+          <button onClick={exportConfig} className="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold">💾 Export Config</button>
+          <label className="flex-1 bg-yellow-500 text-white py-3 rounded-lg font-bold text-center cursor-pointer">
+            📂 Import Config
+            <input type="file" accept=".json" onChange={importConfig} className="hidden" />
+          </label>
+          <button onClick={resetToDefaults} className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold">🔄 Reset Defaults</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Team Selection Screen
+const TeamSelect = ({ onSelect, onAdmin }) => (
+  <div className="min-h-screen bg-gradient-to-b from-purple-900 via-blue-900 to-indigo-900 flex flex-col items-center justify-center p-4">
+    <div className="text-center mb-8">
+      <h1 className="text-4xl font-bold text-white mb-2">✨ The Magical Heroes Mission ✨</h1>
+      <p className="text-purple-200">Bushey Park Boxing Day Treasure Hunt</p>
+    </div>
+    
+    <div className="flex flex-col gap-4 w-full max-w-sm">
+      <button
+        onClick={() => onSelect('sparkle')}
+        className="bg-gradient-to-r from-pink-400 to-purple-500 text-white text-2xl py-8 px-6 rounded-2xl font-bold shadow-lg transform hover:scale-105 transition-transform"
+      >
+        🦄 Team Sparkle
+        <p className="text-sm font-normal mt-1">The Unicorn Adventurers</p>
+      </button>
+      
+      <button
+        onClick={() => onSelect('thunder')}
+        className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-2xl py-8 px-6 rounded-2xl font-bold shadow-lg transform hover:scale-105 transition-transform"
+      >
+        ⚡ Team Thunder
+        <p className="text-sm font-normal mt-1">The Superhero Squad</p>
+      </button>
+    </div>
+    
+    <button
+      onClick={onAdmin}
+      className="mt-8 text-gray-400 text-sm underline"
+    >
+      Admin Setup
+    </button>
+  </div>
+);
+
+// Progress Bar Component
+const ProgressBar = ({ current, total, team }) => {
+  const percentage = (current / total) * 100;
+  const bgColor = team === 'sparkle' ? 'bg-pink-500' : 'bg-blue-500';
+  
+  return (
+    <div className="w-full bg-gray-700 rounded-full h-3 mb-2">
+      <div 
+        className={`${bgColor} h-3 rounded-full transition-all duration-500`}
+        style={{ width: `${percentage}%` }}
+      />
+    </div>
+  );
+};
+
+// Clue Card Component
+const ClueCard = ({ stop, team, distance, isUnlocked, onUnlock }) => {
+  const [showHint, setShowHint] = useState(false);
+  const isInRange = distance !== null && distance <= UNLOCK_RADIUS;
+  
+  const bgGradient = team === 'sparkle' 
+    ? 'from-pink-100 to-purple-100 border-pink-300' 
+    : 'from-blue-100 to-cyan-100 border-blue-300';
+  
+  const buttonColor = team === 'sparkle' ? 'bg-pink-500' : 'bg-blue-500';
+  
+  useEffect(() => {
+    if (isInRange && !isUnlocked) {
+      onUnlock();
+    }
+  }, [isInRange, isUnlocked, onUnlock]);
+  
+  return (
+    <div className={`bg-gradient-to-br ${bgGradient} rounded-2xl p-5 shadow-lg border-2 mb-4`}>
+      <div className="flex justify-between items-start mb-3">
+        <h3 className="font-bold text-lg text-gray-800">{stop.name}</h3>
+        {isUnlocked && <span className="text-2xl">✅</span>}
+      </div>
+      
+      {isUnlocked ? (
+        <div className="whitespace-pre-line text-gray-700 text-lg leading-relaxed font-medium">
+          {stop.clue}
+        </div>
+      ) : (
+        <div className="text-center py-4">
+          <div className="text-6xl mb-3">🔒</div>
+          {distance !== null ? (
+            <>
+              <p className="text-gray-600 mb-2">
+                {isInRange ? 'You\'re here!' : `${Math.round(distance)}m away`}
+              </p>
+              {!isInRange && (
+                <p className="text-sm text-gray-500">Get within {UNLOCK_RADIUS}m to unlock</p>
+              )}
+            </>
+          ) : (
+            <p className="text-gray-600">Waiting for GPS...</p>
+          )}
+        </div>
+      )}
+      
+      {!isUnlocked && (
+        <button
+          onClick={() => setShowHint(!showHint)}
+          className="mt-3 text-sm text-gray-500 underline"
+        >
+          {showHint ? 'Hide hint' : 'Need a hint?'}
+        </button>
+      )}
+      
+      {showHint && !isUnlocked && (
+        <p className="mt-2 text-sm text-gray-600 italic">💡 {stop.hint}</p>
+      )}
+    </div>
+  );
+};
+
+// Main Game Screen
+const GameScreen = ({ team, stops, onBack }) => {
+  const [currentStop, setCurrentStop] = useState(0);
+  const [unlockedStops, setUnlockedStops] = useState([true]); // First clue always unlocked
+  const [position, setPosition] = useState(null);
+  const [gpsError, setGpsError] = useState(null);
+  const [distances, setDistances] = useState([]);
+  
+  const teamStops = stops[team];
+  const isSparkle = team === 'sparkle';
+  
+  const bgGradient = isSparkle
+    ? 'from-pink-600 via-purple-600 to-pink-700'
+    : 'from-blue-700 via-cyan-700 to-blue-800';
+  
+  // GPS watching
+  useEffect(() => {
+    let watchId;
+    
+    const startWatching = () => {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          setGpsError(null);
+          
+          // Calculate distances to all stops
+          const newDistances = teamStops.map(stop => 
+            getDistance(pos.coords.latitude, pos.coords.longitude, stop.lat, stop.lng)
+          );
+          setDistances(newDistances);
+        },
+        (err) => {
+          setGpsError(err.message);
+        },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+      );
+    };
+    
+    startWatching();
+    
+    return () => {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [teamStops]);
+  
+  const handleUnlock = useCallback((index) => {
+    if (!unlockedStops[index]) {
+      const newUnlocked = [...unlockedStops];
+      newUnlocked[index] = true;
+      setUnlockedStops(newUnlocked);
+      
+      // Play sound
+      if (index === teamStops.length - 1) {
+        playSound('victory');
+      } else {
+        playSound(team);
+      }
+      
+      // Auto advance to next clue
+      if (index === currentStop && index < teamStops.length - 1) {
+        setTimeout(() => setCurrentStop(index + 1), 1500);
+      }
+    }
+  }, [unlockedStops, currentStop, teamStops.length, team]);
+  
+  // Admin override to unlock current stop
+  const forceUnlock = () => {
+    handleUnlock(currentStop);
+  };
+  
+  const unlockedCount = unlockedStops.filter(Boolean).length;
+  const isComplete = unlockedCount === teamStops.length;
+  
+  return (
+    <div className={`min-h-screen bg-gradient-to-b ${bgGradient}`}>
+      {/* Header */}
+      <div className="sticky top-0 bg-black bg-opacity-30 backdrop-blur-sm p-4 z-10">
+        <div className="flex justify-between items-center mb-2">
+          <button onClick={onBack} className="text-white text-2xl">←</button>
+          <h1 className="text-white font-bold text-xl">
+            {isSparkle ? '🦄 Team Sparkle' : '⚡ Team Thunder'}
+          </h1>
+          <span className="text-white font-bold">{unlockedCount}/{teamStops.length}</span>
+        </div>
+        <ProgressBar current={unlockedCount} total={teamStops.length} team={team} />
+      </div>
+      
+      {/* GPS Status */}
+      {gpsError && (
+        <div className="mx-4 mt-2 bg-red-500 text-white p-3 rounded-lg text-sm">
+          GPS Error: {gpsError}
+        </div>
+      )}
+      
+      {/* Victory Screen */}
+      {isComplete && (
+        <div className="mx-4 mt-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl p-6 text-center shadow-xl">
+          <div className="text-6xl mb-4">🏆</div>
+          <h2 className="text-2xl font-bold text-white mb-2">MISSION COMPLETE!</h2>
+          <p className="text-white">
+            {isSparkle 
+              ? 'You found the Enchanted Crystal Half!' 
+              : 'You recovered the Power Crystal Half!'}
+          </p>
+          <p className="text-yellow-100 mt-3">Now find the Victory Tree and wait for the other team!</p>
+        </div>
+      )}
+      
+      {/* Stop Navigation */}
+      <div className="flex gap-2 px-4 py-3 overflow-x-auto">
+        {teamStops.map((stop, index) => (
+          <button
+            key={stop.id}
+            onClick={() => setCurrentStop(index)}
+            className={`flex-shrink-0 w-10 h-10 rounded-full font-bold transition-all ${
+              currentStop === index 
+                ? (isSparkle ? 'bg-pink-300 text-pink-800' : 'bg-cyan-300 text-blue-800')
+                : unlockedStops[index]
+                  ? 'bg-white bg-opacity-30 text-white'
+                  : 'bg-black bg-opacity-20 text-gray-300'
+            }`}
+          >
+            {unlockedStops[index] ? '✓' : index}
+          </button>
+        ))}
+      </div>
+      
+      {/* Current Clue */}
+      <div className="px-4 pb-24">
+        <ClueCard
+          stop={teamStops[currentStop]}
+          team={team}
+          distance={distances[currentStop] ?? null}
+          isUnlocked={unlockedStops[currentStop]}
+          onUnlock={() => handleUnlock(currentStop)}
+        />
+        
+        {/* Admin Override Button */}
+        {!unlockedStops[currentStop] && (
+          <button
+            onClick={forceUnlock}
+            className="w-full bg-gray-800 bg-opacity-50 text-white py-3 rounded-lg text-sm"
+          >
+            🔓 Adult Override (Unlock This Clue)
+          </button>
+        )}
+      </div>
+      
+      {/* Navigation Footer */}
+      <div className="fixed bottom-0 left-0 right-0 bg-black bg-opacity-50 backdrop-blur-sm p-4 flex gap-4">
+        <button
+          onClick={() => setCurrentStop(Math.max(0, currentStop - 1))}
+          disabled={currentStop === 0}
+          className="flex-1 bg-white bg-opacity-20 text-white py-3 rounded-lg font-bold disabled:opacity-30"
+        >
+          ← Previous
+        </button>
+        <button
+          onClick={() => setCurrentStop(Math.min(teamStops.length - 1, currentStop + 1))}
+          disabled={currentStop === teamStops.length - 1}
+          className="flex-1 bg-white bg-opacity-20 text-white py-3 rounded-lg font-bold disabled:opacity-30"
+        >
+          Next →
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Main App
+export default function App() {
+  const [screen, setScreen] = useState('select');
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [stops, setStops] = useState(() => {
+    try {
+      const saved = localStorage.getItem('treasureHuntStops');
+      return saved ? JSON.parse(saved) : DEFAULT_STOPS;
+    } catch {
+      return DEFAULT_STOPS;
+    }
+  });
+  const [unlockRadius, setUnlockRadius] = useState(() => {
+    try {
+      const saved = localStorage.getItem('treasureHuntRadius');
+      return saved ? parseInt(saved) : UNLOCK_RADIUS;
+    } catch {
+      return UNLOCK_RADIUS;
+    }
+  });
+  
+  // Persist settings
+  useEffect(() => {
+    localStorage.setItem('treasureHuntStops', JSON.stringify(stops));
+  }, [stops]);
+  
+  useEffect(() => {
+    localStorage.setItem('treasureHuntRadius', unlockRadius.toString());
+  }, [unlockRadius]);
+  
+  const handleTeamSelect = (team) => {
+    setSelectedTeam(team);
+    setScreen('game');
+  };
+  
+  return (
+    <div className="font-sans">
+      {screen === 'select' && (
+        <TeamSelect 
+          onSelect={handleTeamSelect} 
+          onAdmin={() => setShowAdmin(true)} 
+        />
+      )}
+      
+      {screen === 'game' && selectedTeam && (
+        <GameScreen 
+          team={selectedTeam} 
+          stops={stops}
+          onBack={() => setScreen('select')} 
+        />
+      )}
+      
+      {showAdmin && (
+        <AdminPanel
+          stops={stops}
+          setStops={setStops}
+          unlockRadius={unlockRadius}
+          setUnlockRadius={setUnlockRadius}
+          onClose={() => setShowAdmin(false)}
+        />
+      )}
+    </div>
+  );
+}
