@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(if exist \"C:\\Users\\ihowe\\.claude\\plugins\\cache\\firebase\" rmdir /s /q \"C:\\Users\\ihowe\\.claude\\plugins\\cache\\firebase\")",
+      "mcp__firebase__firebase_get_sdk_config",
+      "Bash(npm view:*)",
+      "Bash(npm i:*)",
+      "mcp__firebase__firebase_read_resources",
+      "Bash(npm install:*)",
+      "Bash(npx eslint:*)",
+      "Bash(git commit:*)",
+      "Bash(git add:*)"
     ]
   }
 }
