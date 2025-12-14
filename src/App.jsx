@@ -893,7 +893,11 @@ const GameScreen = ({ team, stops, unlockRadius, onBack }) => {
         {!unlockedStops[currentStop] && (
           <button
             onClick={() => handleUnlock(currentStop)}
-            className="w-full bg-gray-800 bg-opacity-50 text-white py-3 rounded-lg text-sm"
+            className={`w-full py-3 rounded-xl text-sm font-medium shadow-lg ${
+              isSparkle
+                ? 'bg-fuchsia-800 text-pink-100'
+                : 'bg-indigo-800 text-blue-100'
+            }`}
           >
             🔓 Adult Override (Unlock This Clue)
           </button>
@@ -901,18 +905,26 @@ const GameScreen = ({ team, stops, unlockRadius, onBack }) => {
       </div>
       
       {/* Navigation Footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-black bg-opacity-50 backdrop-blur-sm p-4 flex gap-4">
+      <div className={`fixed bottom-0 left-0 right-0 p-4 flex gap-4 ${isSparkle ? 'bg-fuchsia-900' : 'bg-indigo-900'}`}>
         <button
           onClick={() => setCurrentStop(Math.max(0, currentStop - 1))}
           disabled={currentStop === 0}
-          className="flex-1 bg-white bg-opacity-20 text-white py-3 rounded-lg font-bold disabled:opacity-30"
+          className={`flex-1 py-3 rounded-xl font-bold text-lg shadow-lg disabled:opacity-30 ${
+            isSparkle
+              ? 'bg-pink-500 text-white'
+              : 'bg-blue-500 text-white'
+          }`}
         >
           ← Prev
         </button>
         <button
           onClick={() => setCurrentStop(Math.min(teamStops.length - 1, currentStop + 1))}
           disabled={currentStop === teamStops.length - 1}
-          className="flex-1 bg-white bg-opacity-20 text-white py-3 rounded-lg font-bold disabled:opacity-30"
+          className={`flex-1 py-3 rounded-xl font-bold text-lg shadow-lg disabled:opacity-30 ${
+            isSparkle
+              ? 'bg-pink-500 text-white'
+              : 'bg-blue-500 text-white'
+          }`}
         >
           Next →
         </button>
