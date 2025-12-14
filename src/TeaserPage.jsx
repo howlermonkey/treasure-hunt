@@ -103,9 +103,9 @@ const TeaserPage = () => {
         <div className="bg-opacity-10 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-white border-opacity-20 shadow-xl">
           <div className="flex items-center justify-center gap-3 mb-4">
             <span className="text-3xl">🦌</span>
-            <div className="text-left">
-              <p className="text-white font-bold text-lg">Boxing Day 2024</p>
-              <p className="text-green-200 text-sm">December 26th</p>
+            <div className="text-center">
+              <p className="text-white font-bold text-lg">Boxing Day</p>
+              <p className="text-green-200 text-sm">December 26th 2025</p>
             </div>
             <span className="text-3xl">🎅</span>
           </div>
