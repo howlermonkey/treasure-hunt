@@ -70,7 +70,7 @@ const TeaserPage = () => {
     <div
       className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
       style={{
-        backgroundImage: 'linear-gradient(to bottom, rgba(127, 29, 29, 0.75), rgba(20, 83, 45, 0.8), rgba(127, 29, 29, 0.75)), url("/tresure-hunt-bg.png")',
+        backgroundImage: 'url("/tresure-hunt-bg.png")',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}
