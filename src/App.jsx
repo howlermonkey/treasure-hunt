@@ -565,18 +565,18 @@ const TeamSelect = ({ onSelect, onAdmin }) => (
     <div className="flex flex-col gap-4 w-full max-w-sm relative z-10">
       <button
         onClick={() => onSelect('sparkle')}
-        className="bg-gradient-to-r from-red-500 to-red-700 text-white text-2xl py-8 px-6 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform border-4 border-yellow-400"
+        className="bg-gradient-to-r from-pink-400 to-fuchsia-600 text-white text-2xl py-8 px-6 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform border-4 border-pink-200"
       >
         🦄👸 Team Sparkle
-        <p className="text-sm font-normal mt-1">🎁 Unicorns & Princesses 🎁</p>
+        <p className="text-sm font-normal mt-1">✨ Unicorns & Princesses ✨</p>
       </button>
 
       <button
         onClick={() => onSelect('thunder')}
-        className="bg-gradient-to-r from-green-600 to-green-800 text-white text-2xl py-8 px-6 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform border-4 border-yellow-400"
+        className="bg-gradient-to-r from-blue-500 to-indigo-700 text-white text-2xl py-8 px-6 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform border-4 border-blue-300"
       >
-        ⚡ Team Thunder
-        <p className="text-sm font-normal mt-1">🎁 The Superhero Squad 🎁</p>
+        ⚡💪 Team Thunder
+        <p className="text-sm font-normal mt-1">🦸 The Superhero Squad 🦸</p>
       </button>
     </div>
 
@@ -606,9 +606,9 @@ const ClueCard = ({ stop, team, distance, isUnlocked, onUnlock, position, unlock
   const [showMap, setShowMap] = useState(true);
   const isInRange = distance !== null && distance <= unlockRadius;
   
-  const bgGradient = team === 'sparkle' 
-    ? 'from-pink-100 to-purple-100 border-pink-300' 
-    : 'from-blue-100 to-cyan-100 border-blue-300';
+  const bgGradient = team === 'sparkle'
+    ? 'from-pink-100 to-fuchsia-100 border-pink-300'
+    : 'from-blue-100 to-indigo-100 border-blue-300';
   
   useEffect(() => {
     if (isInRange && !isUnlocked) {
@@ -712,8 +712,8 @@ const GameScreen = ({ team, stops, unlockRadius, onBack }) => {
   const isSparkle = team === 'sparkle';
   
   const bgGradient = isSparkle
-    ? 'from-pink-600 via-purple-600 to-pink-700'
-    : 'from-blue-700 via-cyan-700 to-blue-800';
+    ? 'from-pink-500 via-fuchsia-600 to-pink-600'
+    : 'from-blue-600 via-indigo-700 to-blue-800';
   
   useEffect(() => {
     let watchId;
@@ -794,8 +794,8 @@ const GameScreen = ({ team, stops, unlockRadius, onBack }) => {
             key={stop.id}
             onClick={() => setCurrentStop(index)}
             className={`flex-shrink-0 w-10 h-10 rounded-full font-bold transition-all ${
-              currentStop === index 
-                ? (isSparkle ? 'bg-pink-300 text-pink-800' : 'bg-cyan-300 text-blue-800')
+              currentStop === index
+                ? (isSparkle ? 'bg-pink-300 text-pink-800' : 'bg-blue-300 text-blue-800')
                 : unlockedStops[index]
                   ? 'bg-white bg-opacity-30 text-white'
                   : 'bg-black bg-opacity-20 text-gray-300'
