@@ -75,10 +75,13 @@ const TeaserPage = () => {
         backgroundPosition: 'center',
       }}
     >
+      {/* Dark overlay for text contrast */}
+      <div className="absolute inset-0 bg-black bg-opacity-40 z-0"></div>
+
       <Snowflakes />
 
       {/* Main Content */}
-      <div className="relative z-10 text-center max-w-lg mx-auto">
+      <div className="relative z-10 text-center max-w-lg mx-auto" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}>
         {/* Secret Badge */}
         <div className="mb-6">
           <span className="inline-block bg-yellow-500 text-yellow-900 text-xs font-bold px-4 py-1 rounded-full uppercase tracking-wider shadow-lg">
