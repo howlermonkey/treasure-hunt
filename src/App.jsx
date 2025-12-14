@@ -557,7 +557,7 @@ const TeamSelect = ({ onSelect, onAdmin }) => (
     <Snowflakes />
     <div className="text-center mb-8 relative z-10">
       <div className="text-5xl mb-4">🎄</div>
-      <h1 className="text-3xl font-bold text-white mb-2">✨ Christmas Treasure Hunt ✨</h1>
+      <h1 className="text-3xl font-bold text-red-600 mb-2">✨ Christmas Treasure Hunt ✨</h1>
       <p className="text-green-200">🎅 Bushey Park Boxing Day Adventure 🦌</p>
       <p className="text-yellow-300 text-sm mt-2">⭐ Find the hidden Christmas treasures! ⭐</p>
     </div>
@@ -584,7 +584,7 @@ const TeamSelect = ({ onSelect, onAdmin }) => (
       🔧 Admin Setup
     </button>
 
-    <p className="text-white text-opacity-60 text-xs mt-4 relative z-10">🎄 Merry Christmas! 🎄</p>
+    <p className="text-red-600 text-opacity-60 text-xs mt-4 relative z-10">🎄 Merry Christmas! 🎄</p>
   </div>
 );
 
