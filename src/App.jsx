@@ -205,24 +205,30 @@ const MiniMap = ({ position, target, team, unlockRadius, isUnlocked }) => {
 };
 
 // Direction Indicator
-const DirectionIndicator = ({ position, target, distance }) => {
+const DirectionIndicator = ({ position, target, distance, team }) => {
   if (!position || !target) return null;
-  
+
   const bearing = getBearing(position.lat, position.lng, target.lat, target.lng);
   const direction = getDirection(bearing);
-  
+  const isSparkle = team === 'sparkle';
+
+  const bgClass = isSparkle
+    ? 'bg-gradient-to-r from-pink-500 to-fuchsia-500'
+    : 'bg-gradient-to-r from-blue-500 to-indigo-600';
+
   return (
-    <div className="flex items-center justify-center gap-4 py-3 bg-black bg-opacity-20 rounded-lg mt-2">
-      <div 
-        className="text-4xl transition-transform duration-300"
+    <div className={`flex items-center justify-center gap-4 py-4 px-6 ${bgClass} rounded-2xl mt-3 shadow-lg`}>
+      <div
+        className="text-4xl transition-transform duration-300 bg-white bg-opacity-20 rounded-full p-2"
         style={{ transform: `rotate(${bearing}deg)` }}
       >
         ⬆️
       </div>
       <div className="text-center">
-        <div className="text-2xl font-bold text-white">{Math.round(distance)}m</div>
-        <div className="text-sm text-white text-opacity-80">Head {direction}</div>
+        <div className="text-3xl font-bold text-white drop-shadow">{Math.round(distance)}m</div>
+        <div className="text-sm text-white text-opacity-90 font-medium">Head {direction} {isSparkle ? '✨' : '💨'}</div>
       </div>
+      <div className="text-3xl">{isSparkle ? '🦄' : '🦸'}</div>
     </div>
   );
 };
@@ -605,97 +611,162 @@ const ClueCard = ({ stop, team, distance, isUnlocked, onUnlock, position, unlock
   const [showHint, setShowHint] = useState(false);
   const [showMap, setShowMap] = useState(true);
   const isInRange = distance !== null && distance <= unlockRadius;
-  
-  const bgGradient = team === 'sparkle'
-    ? 'from-pink-100 to-fuchsia-100 border-pink-300'
-    : 'from-blue-100 to-indigo-100 border-blue-300';
-  
+  const isSparkle = team === 'sparkle';
+
+  const theme = isSparkle
+    ? {
+        bg: 'from-pink-50 via-fuchsia-50 to-pink-100',
+        border: 'border-pink-300',
+        accent: 'bg-pink-500',
+        accentLight: 'bg-pink-100',
+        accentText: 'text-pink-600',
+        headerBg: 'bg-gradient-to-r from-pink-400 to-fuchsia-500',
+        icon: '🦄',
+        lockedIcon: '✨',
+        unlockedIcon: '👸',
+        hintBg: 'bg-pink-50 border-pink-200',
+        mapBtnBg: 'bg-pink-100 hover:bg-pink-200 text-pink-700',
+        nextBadge: 'bg-fuchsia-200 text-fuchsia-700',
+      }
+    : {
+        bg: 'from-blue-50 via-indigo-50 to-blue-100',
+        border: 'border-blue-300',
+        accent: 'bg-blue-500',
+        accentLight: 'bg-blue-100',
+        accentText: 'text-blue-600',
+        headerBg: 'bg-gradient-to-r from-blue-500 to-indigo-600',
+        icon: '⚡',
+        lockedIcon: '🔐',
+        unlockedIcon: '💪',
+        hintBg: 'bg-blue-50 border-blue-200',
+        mapBtnBg: 'bg-blue-100 hover:bg-blue-200 text-blue-700',
+        nextBadge: 'bg-indigo-200 text-indigo-700',
+      };
+
   useEffect(() => {
     if (isInRange && !isUnlocked) {
       onUnlock();
     }
   }, [isInRange, isUnlocked, onUnlock]);
-  
+
   const mapTarget = isUnlocked && nextStop ? nextStop : stop;
-  const mapDistance = isUnlocked && nextStop && position 
+  const mapDistance = isUnlocked && nextStop && position
     ? getDistance(position.lat, position.lng, nextStop.lat, nextStop.lng)
     : distance;
-  
+
   const showMapSection = isUnlocked ? nextStop : true;
   const isLastStop = !nextStop && isUnlocked;
-  
+
   return (
-    <div className={`bg-gradient-to-br ${bgGradient} rounded-2xl p-4 shadow-lg border-2 mb-4`}>
-      <div className="flex justify-between items-start mb-3">
-        <h3 className="font-bold text-lg text-gray-800">{stop.name}</h3>
+    <div className={`bg-gradient-to-br ${theme.bg} rounded-3xl shadow-xl border-2 ${theme.border} mb-4 overflow-hidden`}>
+      {/* Header */}
+      <div className={`${theme.headerBg} px-4 py-3 flex justify-between items-center`}>
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">{isUnlocked ? theme.unlockedIcon : theme.icon}</span>
+          <h3 className="font-bold text-white text-lg drop-shadow">{stop.name}</h3>
+        </div>
         {isUnlocked && <span className="text-2xl">✅</span>}
       </div>
-      
-      {isUnlocked ? (
-        <div className="whitespace-pre-line text-gray-700 text-lg leading-relaxed font-medium mb-3">
-          {stop.clue}
-        </div>
-      ) : (
-        <div className="text-center py-4">
-          <div className="text-5xl mb-3">🔒</div>
-          {distance !== null ? (
-            <>
-              <p className="text-gray-600 mb-1 text-lg font-medium">
-                {isInRange ? "You're here!" : `${Math.round(distance)}m away`}
-              </p>
-              {!isInRange && <p className="text-sm text-gray-500">Get within {unlockRadius}m to unlock</p>}
-            </>
-          ) : (
-            <p className="text-gray-600">Waiting for GPS...</p>
-          )}
-        </div>
-      )}
-      
-      {/* Map Section */}
-      {showMapSection && (
-        <div className="mt-3">
-          <button 
-            onClick={() => setShowMap(!showMap)}
-            className="text-sm text-gray-600 mb-2 flex items-center gap-1"
-          >
-            🗺️ {showMap ? 'Hide' : 'Show'} Map
-            {isUnlocked && nextStop && (
-              <span className="text-xs bg-gray-200 px-2 py-0.5 rounded-full ml-1">Next: {nextStop.name}</span>
+
+      <div className="p-4">
+        {isUnlocked ? (
+          /* Unlocked Clue Content */
+          <div className="relative">
+            <div className={`absolute -left-1 top-0 bottom-0 w-1 ${theme.accent} rounded-full`}></div>
+            <div className="pl-4 whitespace-pre-line text-gray-700 text-lg leading-relaxed font-medium">
+              {stop.clue}
+            </div>
+          </div>
+        ) : (
+          /* Locked State */
+          <div className="text-center py-6">
+            <div className="text-6xl mb-4 animate-pulse">{theme.lockedIcon}</div>
+            {distance !== null ? (
+              <div className={`inline-block px-6 py-3 rounded-2xl ${theme.accentLight}`}>
+                {isInRange ? (
+                  <p className={`text-xl font-bold ${theme.accentText}`}>
+                    ✨ You're here! ✨
+                  </p>
+                ) : (
+                  <>
+                    <p className={`text-2xl font-bold ${theme.accentText}`}>
+                      {Math.round(distance)}m away
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">Get within {unlockRadius}m to unlock</p>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className={`inline-block px-6 py-3 rounded-2xl ${theme.accentLight}`}>
+                <p className="text-gray-600 flex items-center gap-2">
+                  <span className="animate-spin">📡</span> Waiting for GPS...
+                </p>
+              </div>
             )}
-          </button>
-          
-          {showMap && (
-            <>
-              <MiniMap 
-                position={position} 
-                target={mapTarget} 
-                team={team}
-                unlockRadius={unlockRadius}
-                isUnlocked={isLastStop}
-              />
-              {position && mapDistance !== null && (
-                <DirectionIndicator position={position} target={mapTarget} distance={mapDistance} />
+          </div>
+        )}
+
+        {/* Map Section */}
+        {showMapSection && (
+          <div className="mt-4">
+            <button
+              onClick={() => setShowMap(!showMap)}
+              className={`w-full text-sm px-4 py-2 rounded-xl mb-3 flex items-center justify-center gap-2 transition-colors ${theme.mapBtnBg}`}
+            >
+              🗺️ {showMap ? 'Hide Map' : 'Show Map'}
+              {isUnlocked && nextStop && (
+                <span className={`text-xs px-2 py-0.5 rounded-full ${theme.nextBadge}`}>
+                  Next: {nextStop.name}
+                </span>
               )}
-            </>
-          )}
-        </div>
-      )}
-      
-      {isLastStop && (
-        <div className="mt-3 p-3 bg-green-100 rounded-lg text-center">
-          <p className="text-green-800 font-bold">🎉 You've reached the final location!</p>
-        </div>
-      )}
-      
-      {!isUnlocked && (
-        <button onClick={() => setShowHint(!showHint)} className="mt-3 text-sm text-gray-500 underline">
-          {showHint ? 'Hide hint' : 'Need a hint?'}
-        </button>
-      )}
-      
-      {showHint && !isUnlocked && (
-        <p className="mt-2 text-sm text-gray-600 italic">💡 {stop.hint}</p>
-      )}
+            </button>
+
+            {showMap && (
+              <>
+                <MiniMap
+                  position={position}
+                  target={mapTarget}
+                  team={team}
+                  unlockRadius={unlockRadius}
+                  isUnlocked={isLastStop}
+                />
+                {position && mapDistance !== null && (
+                  <DirectionIndicator position={position} target={mapTarget} distance={mapDistance} team={team} />
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Final Location Message */}
+        {isLastStop && (
+          <div className={`mt-4 p-4 rounded-2xl text-center ${isSparkle ? 'bg-gradient-to-r from-pink-200 to-fuchsia-200' : 'bg-gradient-to-r from-blue-200 to-indigo-200'}`}>
+            <p className="text-xl font-bold text-gray-800">🎉 You've reached the final location! 🎉</p>
+            <p className="text-sm text-gray-600 mt-1">Wait for the other team!</p>
+          </div>
+        )}
+
+        {/* Hint Section */}
+        {!isUnlocked && (
+          <div className="mt-4">
+            <button
+              onClick={() => setShowHint(!showHint)}
+              className={`w-full text-sm px-4 py-2 rounded-xl transition-colors ${theme.mapBtnBg}`}
+            >
+              {showHint ? '🙈 Hide hint' : '💡 Need a hint?'}
+            </button>
+
+            {showHint && (
+              <div className={`mt-3 p-3 rounded-xl border ${theme.hintBg}`}>
+                <p className="text-gray-700 italic flex items-start gap-2">
+                  <span>💡</span>
+                  <span>{stop.hint}</span>
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
