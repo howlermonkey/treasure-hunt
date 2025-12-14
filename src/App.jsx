@@ -549,7 +549,7 @@ const TeamSelect = ({ onSelect, onAdmin }) => (
   <div
     className="min-h-screen bg-gradient-to-b from-red-900 via-green-900 to-red-900 flex flex-col items-center justify-center p-4 relative overflow-hidden"
     style={{
-      backgroundImage: 'linear-gradient(to bottom, rgba(127, 29, 29, 0.85), rgba(20, 83, 45, 0.85), rgba(127, 29, 29, 0.85)), url("/tresure-hunt-bg.png")',
+      backgroundImage: 'url("/tresure-hunt-bg.png")',
       backgroundSize: 'cover',
       backgroundPosition: 'center',
     }}
