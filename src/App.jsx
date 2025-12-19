@@ -318,6 +318,53 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, o
     setStops(newStops);
   };
 
+  const addStop = (team) => {
+    const newStops = { ...stops };
+    const teamStops = [...newStops[team]];
+    const prefix = team === 'sparkle' ? 'S' : 'T';
+    const newIndex = teamStops.length;
+    const lastStop = teamStops[teamStops.length - 1];
+
+    const newStop = {
+      id: `${prefix}${newIndex}`,
+      name: `New Stop ${newIndex}`,
+      lat: lastStop ? lastStop.lat + 0.0005 : 51.4245,
+      lng: lastStop ? lastStop.lng + 0.0005 : -0.3442,
+      clue: 'Enter your clue here...',
+      hint: 'Enter a hint here...'
+    };
+
+    teamStops.push(newStop);
+    newStops[team] = teamStops;
+    setStops(newStops);
+    setEditingStop(newIndex);
+  };
+
+  const deleteStop = (team, index) => {
+    if (stops[team].length <= 2) {
+      alert('You must have at least 2 stops per team.');
+      return;
+    }
+
+    if (!confirm(`Delete "${stops[team][index].name}"? This cannot be undone.`)) {
+      return;
+    }
+
+    const newStops = { ...stops };
+    const teamStops = [...newStops[team]];
+    teamStops.splice(index, 1);
+
+    // Re-index the IDs
+    const prefix = team === 'sparkle' ? 'S' : 'T';
+    teamStops.forEach((stop, i) => {
+      stop.id = `${prefix}${i}`;
+    });
+
+    newStops[team] = teamStops;
+    setStops(newStops);
+    setEditingStop(null);
+  };
+
   const saveToCloud = async () => {
     setSaving(true);
     try {
@@ -409,12 +456,14 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, o
               <div key={stop.id} className="border rounded-lg p-3">
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-bold text-sm">{stop.id}: {stop.name}</span>
-                  <button 
-                    onClick={() => setEditingStop(editingStop === index ? null : index)}
-                    className="text-blue-600 text-sm"
-                  >
-                    {editingStop === index ? 'Close' : 'Edit'}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditingStop(editingStop === index ? null : index)}
+                      className="text-blue-600 text-sm"
+                    >
+                      {editingStop === index ? 'Close' : 'Edit'}
+                    </button>
+                  </div>
                 </div>
                 {editingStop === index && (
                   <div className="space-y-2 mt-2 pt-2 border-t">
@@ -477,10 +526,25 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, o
                         🗺️ Pick on Map
                       </button>
                     </div>
+                    <button
+                      onClick={() => deleteStop(activeTeam, index)}
+                      className="w-full bg-red-100 text-red-600 py-2 rounded text-sm hover:bg-red-200 mt-2"
+                    >
+                      🗑️ Delete This Stop
+                    </button>
                   </div>
                 )}
               </div>
             ))}
+
+            <button
+              onClick={() => addStop(activeTeam)}
+              className={`w-full py-3 rounded-lg font-bold text-white mt-3 ${
+                activeTeam === 'sparkle' ? 'bg-pink-500 hover:bg-pink-600' : 'bg-blue-500 hover:bg-blue-600'
+              }`}
+            >
+              ➕ Add New Stop to {activeTeam === 'sparkle' ? 'Team Sparkle' : 'Team Thunder'}
+            </button>
           </div>
         </div>
         
