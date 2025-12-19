@@ -92,11 +92,11 @@ const TeaserPage = () => {
         {/* Main Title */}
         <div className="mb-8">
           <div className="text-6xl mb-4">🎄</div>
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-3 drop-shadow-lg">
+          <h1 className="text-4xl md:text-5xl font-bold text-red-500 mb-3 drop-shadow-lg">
             A Secret
             <span className="block text-yellow-300">Treasure Hunt</span>
           </h1>
-          <p className="text-xl text-green-200 font-medium">is coming...</p>
+          <p className="text-xl text-red-400 font-medium">is coming...</p>
         </div>
 
         {/* Details Card */}
@@ -104,15 +104,15 @@ const TeaserPage = () => {
           <div className="flex items-center justify-center gap-3 mb-4">
             <span className="text-3xl">🦌</span>
             <div className="text-center">
-              <p className="text-white font-bold text-lg">Boxing Day</p>
-              <p className="text-green-200 text-sm">December 26th 2025</p>
+              <p className="text-red-500 font-bold text-lg">Boxing Day</p>
+              <p className="text-red-400 text-sm">December 26th 2025</p>
             </div>
             <span className="text-3xl">🎅</span>
           </div>
 
           <div className="border-t border-white border-opacity-20 pt-4 mt-4">
-            <p className="text-white text-lg font-medium mb-1">Bushey Park</p>
-            <p className="text-green-200 text-sm">A magical Christmas adventure awaits...</p>
+            <p className="text-red-500 text-lg font-medium mb-1">Bushey Park</p>
+            <p className="text-red-400 text-sm">A magical Christmas adventure awaits...</p>
           </div>
         </div>
 
@@ -125,11 +125,11 @@ const TeaserPage = () => {
         </div>
 
         {/* Teaser Text */}
-        <div className="space-y-3 text-white text-opacity-90">
+        <div className="space-y-3 text-red-500">
           <p className="text-lg italic">
             "Two teams. Hidden clues. One epic quest."
           </p>
-          <p className="text-sm text-green-200">
+          <p className="text-sm text-red-400">
             Prepare for an unforgettable Christmas adventure...
           </p>
         </div>
@@ -148,7 +148,7 @@ const TeaserPage = () => {
 
       {/* Footer */}
       <div className="absolute bottom-4 left-0 right-0 text-center">
-        <p className="text-white text-opacity-50 text-xs">
+        <p className="text-red-400 text-xs">
           🎄 Merry Christmas 🎄
         </p>
       </div>
