@@ -135,8 +135,8 @@ const TeaserPage = () => {
         </div>
 
         {/* Invitation Notice */}
-        <div className="mt-10 pt-6 border-t border-white border-opacity-20">
-          <div className="flex items-center justify-center gap-2 text-yellow-300">
+        <div className="mt-10 pt-6 border-t border-red border-opacity-20">
+          <div className="flex items-center justify-center gap-2 text-black">
             <span>🔒</span>
             <p className="text-sm font-medium">
               Check your invitation for the secret link
@@ -148,7 +148,7 @@ const TeaserPage = () => {
 
       {/* Footer */}
       <div className="absolute bottom-4 left-0 right-0 text-center">
-        <p className="text-red-400 text-xs">
+        <p className="text-red-600 text-opacity-50 text-xs">
           🎄 Merry Christmas 🎄
         </p>
       </div>
