@@ -76,7 +76,7 @@ const TeaserPage = () => {
       }}
     >
       {/* Dark overlay for text contrast */}
-      <div className="absolute inset-0 bg-gray-400 bg-opacity-40 z-0"></div>
+      {/* <div className="absolute inset-0 bg-gray-400 bg-opacity-40 z-0"></div> */}
 
       <Snowflakes />
 
