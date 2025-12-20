@@ -295,12 +295,13 @@ const MapPicker = ({ lat, lng, onLocationSelect, onClose }) => {
 };
 
 // Admin Panel
-const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, onSaveToCloud }) => {
+const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, onSaveToCloud, onReloadFromCloud }) => {
   const [activeTeam, setActiveTeam] = useState('sparkle');
   const [editingStop, setEditingStop] = useState(null);
   const [adminPassword, setAdminPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(null);
 
   const handleAuth = () => {
@@ -374,6 +375,17 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, o
       alert('Failed to save: ' + err.message);
     }
     setSaving(false);
+  };
+
+  const reloadFromCloud = async () => {
+    setReloading(true);
+    try {
+      await onReloadFromCloud();
+      alert('Reloaded from cloud!');
+    } catch (err) {
+      alert('Failed to reload: ' + err.message);
+    }
+    setReloading(false);
   };
 
   const exportConfig = () => {
@@ -548,13 +560,27 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, o
           </div>
         </div>
         
+        {/* Debug: Show current first stop coords */}
+        <div className="bg-gray-100 p-3 rounded-lg mb-3 text-xs">
+          <p className="font-bold">Current loaded values:</p>
+          <p>Sparkle S0: {stops?.sparkle?.[0]?.lat?.toFixed(6)}, {stops?.sparkle?.[0]?.lng?.toFixed(6)}</p>
+          <p>Thunder T0: {stops?.thunder?.[0]?.lat?.toFixed(6)}, {stops?.thunder?.[0]?.lng?.toFixed(6)}</p>
+        </div>
+
         <div className="flex flex-wrap gap-2 mb-2">
           <button
             onClick={saveToCloud}
             disabled={saving}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold disabled:opacity-50"
+            className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold disabled:opacity-50"
           >
             {saving ? '☁️ Saving...' : '☁️ Save to Cloud'}
+          </button>
+          <button
+            onClick={reloadFromCloud}
+            disabled={reloading}
+            className="flex-1 bg-purple-600 text-white py-3 rounded-lg font-bold disabled:opacity-50"
+          >
+            {reloading ? '🔄 Loading...' : '🔄 Reload from Cloud'}
           </button>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -615,7 +641,7 @@ const Snowflakes = () => (
 );
 
 // Team Selection
-const TeamSelect = ({ onSelect, onAdmin }) => (
+const TeamSelect = ({ onSelect, onAdmin, stops, dataSource }) => (
   <div
     className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
     style={{
@@ -653,6 +679,14 @@ const TeamSelect = ({ onSelect, onAdmin }) => (
     <button onClick={onAdmin} className="mt-8 text-yellow-400 text-sm underline relative z-10">
       🔧 Admin Setup
     </button>
+
+    {/* Debug Panel - shows loaded coordinates */}
+    <div className="mt-4 bg-black bg-opacity-70 text-white text-xs p-3 rounded-lg max-w-sm w-full relative z-10">
+      <p className="font-bold mb-1">📍 Debug: Loaded from {dataSource || 'unknown'}</p>
+      <p>Sparkle S0: {stops?.sparkle?.[0]?.lat?.toFixed(6)}, {stops?.sparkle?.[0]?.lng?.toFixed(6)}</p>
+      <p>Thunder T0: {stops?.thunder?.[0]?.lat?.toFixed(6)}, {stops?.thunder?.[0]?.lng?.toFixed(6)}</p>
+      <p className="mt-1 text-yellow-300">Sparkle stops: {stops?.sparkle?.length} | Thunder stops: {stops?.thunder?.length}</p>
+    </div>
 
     <p className="text-red-600 text-opacity-60 text-xs mt-4 relative z-10">🎄 Merry Christmas! 🎄</p>
   </div>
@@ -1005,6 +1039,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [stops, setStops] = useState(DEFAULT_STOPS);
   const [unlockRadius, setUnlockRadius] = useState(UNLOCK_RADIUS);
+  const [dataSource, setDataSource] = useState('defaults');
 
   // Load config from Firestore on mount
   useEffect(() => {
@@ -1025,6 +1060,7 @@ export default function App() {
           });
           if (data.stops) setStops(data.stops);
           if (data.unlockRadius) setUnlockRadius(data.unlockRadius);
+          setDataSource('CLOUD ☁️');
         } else {
           console.log('[TreasureHunt] ⚠️ No cloud config found, trying localStorage...');
           // Fallback to localStorage if no cloud config
@@ -1038,13 +1074,16 @@ export default function App() {
               firstSparkleStop: parsed?.sparkle?.[0]
             });
             setStops(parsed);
+            setDataSource('localStorage 📦');
           } else {
             console.log('[TreasureHunt] 🔄 Using DEFAULT_STOPS');
+            setDataSource('DEFAULTS ⚠️');
           }
           if (savedRadius) setUnlockRadius(parseInt(savedRadius));
         }
       } catch (err) {
         console.error('[TreasureHunt] ❌ Cloud load failed:', err);
+        setDataSource('CLOUD FAILED ❌');
         // Fallback to localStorage
         try {
           const savedStops = localStorage.getItem('treasureHuntStops');
@@ -1056,6 +1095,7 @@ export default function App() {
               thunderCount: parsed?.thunder?.length
             });
             setStops(parsed);
+            setDataSource('localStorage (fallback) 📦');
           }
           if (savedRadius) setUnlockRadius(parseInt(savedRadius));
         } catch { /* ignore */ }
@@ -1095,6 +1135,29 @@ export default function App() {
     console.log('[TreasureHunt] ✅ Cloud save complete');
   };
 
+  // Reload from Firestore
+  const reloadFromCloud = async () => {
+    console.log('[TreasureHunt] 🔄 Reloading from cloud...');
+    const docRef = doc(db, 'config', 'treasureHunt');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      console.log('[TreasureHunt] ✅ Reloaded from CLOUD:', {
+        hasStops: !!data.stops,
+        sparkleCount: data.stops?.sparkle?.length,
+        thunderCount: data.stops?.thunder?.length,
+        unlockRadius: data.unlockRadius,
+        updatedAt: data.updatedAt,
+        firstSparkleStop: data.stops?.sparkle?.[0]
+      });
+      if (data.stops) setStops(data.stops);
+      if (data.unlockRadius) setUnlockRadius(data.unlockRadius);
+      setDataSource('CLOUD ☁️ (reloaded)');
+    } else {
+      throw new Error('No cloud config found');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-red-900 via-green-900 to-red-900 flex items-center justify-center">
@@ -1109,7 +1172,12 @@ export default function App() {
   return (
     <div className="font-sans">
       {screen === 'select' && (
-        <TeamSelect onSelect={(team) => { setSelectedTeam(team); setScreen('game'); }} onAdmin={() => setShowAdmin(true)} />
+        <TeamSelect
+          onSelect={(team) => { setSelectedTeam(team); setScreen('game'); }}
+          onAdmin={() => setShowAdmin(true)}
+          stops={stops}
+          dataSource={dataSource}
+        />
       )}
 
       {screen === 'game' && selectedTeam && (
@@ -1124,6 +1192,7 @@ export default function App() {
           setUnlockRadius={setUnlockRadius}
           onClose={() => setShowAdmin(false)}
           onSaveToCloud={saveToCloud}
+          onReloadFromCloud={reloadFromCloud}
         />
       )}
     </div>
