@@ -1009,27 +1009,54 @@ export default function App() {
   // Load config from Firestore on mount
   useEffect(() => {
     const loadConfig = async () => {
+      console.log('[TreasureHunt] Starting config load...');
       try {
         const docRef = doc(db, 'config', 'treasureHunt');
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
+          console.log('[TreasureHunt] ✅ Loaded from CLOUD:', {
+            hasStops: !!data.stops,
+            sparkleCount: data.stops?.sparkle?.length,
+            thunderCount: data.stops?.thunder?.length,
+            unlockRadius: data.unlockRadius,
+            updatedAt: data.updatedAt,
+            firstSparkleStop: data.stops?.sparkle?.[0]
+          });
           if (data.stops) setStops(data.stops);
           if (data.unlockRadius) setUnlockRadius(data.unlockRadius);
         } else {
+          console.log('[TreasureHunt] ⚠️ No cloud config found, trying localStorage...');
           // Fallback to localStorage if no cloud config
           const savedStops = localStorage.getItem('treasureHuntStops');
           const savedRadius = localStorage.getItem('treasureHuntRadius');
-          if (savedStops) setStops(JSON.parse(savedStops));
+          if (savedStops) {
+            const parsed = JSON.parse(savedStops);
+            console.log('[TreasureHunt] 📦 Loaded from localStorage:', {
+              sparkleCount: parsed?.sparkle?.length,
+              thunderCount: parsed?.thunder?.length,
+              firstSparkleStop: parsed?.sparkle?.[0]
+            });
+            setStops(parsed);
+          } else {
+            console.log('[TreasureHunt] 🔄 Using DEFAULT_STOPS');
+          }
           if (savedRadius) setUnlockRadius(parseInt(savedRadius));
         }
       } catch (err) {
-        console.log('Could not load from cloud, using local:', err);
+        console.error('[TreasureHunt] ❌ Cloud load failed:', err);
         // Fallback to localStorage
         try {
           const savedStops = localStorage.getItem('treasureHuntStops');
           const savedRadius = localStorage.getItem('treasureHuntRadius');
-          if (savedStops) setStops(JSON.parse(savedStops));
+          if (savedStops) {
+            const parsed = JSON.parse(savedStops);
+            console.log('[TreasureHunt] 📦 Fallback to localStorage:', {
+              sparkleCount: parsed?.sparkle?.length,
+              thunderCount: parsed?.thunder?.length
+            });
+            setStops(parsed);
+          }
           if (savedRadius) setUnlockRadius(parseInt(savedRadius));
         } catch { /* ignore */ }
       }
@@ -1053,12 +1080,19 @@ export default function App() {
 
   // Save to Firestore
   const saveToCloud = async () => {
+    console.log('[TreasureHunt] 💾 Saving to cloud...', {
+      sparkleCount: stops?.sparkle?.length,
+      thunderCount: stops?.thunder?.length,
+      unlockRadius,
+      firstSparkleStop: stops?.sparkle?.[0]
+    });
     const docRef = doc(db, 'config', 'treasureHunt');
     await setDoc(docRef, {
       stops,
       unlockRadius,
       updatedAt: new Date().toISOString()
     });
+    console.log('[TreasureHunt] ✅ Cloud save complete');
   };
 
   if (loading) {
