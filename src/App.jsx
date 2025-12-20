@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMap, Circle, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { db } from './firebase';
@@ -13,10 +13,10 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Custom markers
+// Custom markers - use empty className to avoid Leaflet default styles
 const createIcon = (emoji, size = 30) => L.divIcon({
-  html: `<div style="font-size: ${size}px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${emoji}</div>`,
-  className: 'custom-marker',
+  html: `<div style="font-size: ${size}px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; width: ${size}px; height: ${size}px;">${emoji}</div>`,
+  className: '',
   iconSize: [size, size],
   iconAnchor: [size/2, size/2],
 });
@@ -182,11 +182,23 @@ const MiniMap = ({ position, currentStop, nextStop, team, unlockRadius, isCurren
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <MapController position={position} target={primaryTarget} secondaryTarget={hasNextStop ? currentStop : null} />
 
+        {/* Debug: Red dot at exact coordinates */}
+        <Circle
+          center={[currentStop.lat, currentStop.lng]}
+          radius={3}
+          pathOptions={{ color: 'red', fillColor: 'red', fillOpacity: 1, weight: 2 }}
+        />
+
         {/* Current stop - show as completed (green) if unlocked, or as target if not */}
         <Marker
           position={[currentStop.lat, currentStop.lng]}
           icon={isCurrentUnlocked ? completedIcon : (currentStop.name.includes('FINISH') ? finishIcon : targetIcon)}
-        />
+        >
+          <Popup>
+            <strong>{currentStop.name}</strong><br/>
+            {currentStop.lat.toFixed(6)}, {currentStop.lng.toFixed(6)}
+          </Popup>
+        </Marker>
         <Circle
           center={[currentStop.lat, currentStop.lng]}
           radius={unlockRadius}
@@ -202,10 +214,21 @@ const MiniMap = ({ position, currentStop, nextStop, team, unlockRadius, isCurren
         {/* Next stop - show if current is unlocked */}
         {hasNextStop && (
           <>
+            {/* Debug: Blue dot at exact next stop coordinates */}
+            <Circle
+              center={[nextStop.lat, nextStop.lng]}
+              radius={3}
+              pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 1, weight: 2 }}
+            />
             <Marker
               position={[nextStop.lat, nextStop.lng]}
               icon={isFinish ? finishIcon : nextIcon}
-            />
+            >
+              <Popup>
+                <strong>{nextStop.name}</strong><br/>
+                {nextStop.lat.toFixed(6)}, {nextStop.lng.toFixed(6)}
+              </Popup>
+            </Marker>
             <Circle
               center={[nextStop.lat, nextStop.lng]}
               radius={unlockRadius}
