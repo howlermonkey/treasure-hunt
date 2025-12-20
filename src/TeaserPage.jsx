@@ -100,7 +100,7 @@ const TeaserPage = () => {
         </div>
 
         {/* Details Card */}
-        <div className="bg-opacity-10 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-white border-opacity-20 shadow-xl">
+        <div className="bg-opacity-10 bg-green-950 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-white border-opacity-20 shadow-xl">
           <div className="flex items-center justify-center gap-3 mb-4">
             <span className="text-3xl">🦌</span>
             <div className="text-center">
@@ -135,7 +135,7 @@ const TeaserPage = () => {
         </div>
 
         {/* Invitation Notice */}
-        <div className="mt-10 pt-6 border-t border-red border-opacity-20">
+        {/* <div className="mt-10 pt-6 border-t border-red border-opacity-20">
           <div className="flex items-center justify-center gap-2 text-black">
             <span>🔒</span>
             <p className="text-sm font-medium">
@@ -144,7 +144,7 @@ const TeaserPage = () => {
             <span>🔒</span>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Footer */}
       <div className="absolute bottom-4 left-0 right-0 text-center">
