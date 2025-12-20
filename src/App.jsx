@@ -25,6 +25,8 @@ const targetIcon = createIcon('📍', 32);
 const sparkleIcon = createIcon('🦄', 28);
 const thunderIcon = createIcon('⚡', 28);
 const finishIcon = createIcon('🏆', 36);
+const completedIcon = createIcon('✅', 24);
+const nextIcon = createIcon('🎯', 32);
 
 // Default coordinates around Clapperstile Gate / Cricket & Rugby clubs area
 const DEFAULT_STOPS = {
@@ -129,37 +131,46 @@ const getDirection = (bearing) => {
 };
 
 // Map auto-fit
-const MapController = ({ position, target }) => {
+const MapController = ({ position, target, secondaryTarget }) => {
   const map = useMap();
-  
+
   useEffect(() => {
-    if (position && target) {
-      const bounds = L.latLngBounds([
-        [position.lat, position.lng],
-        [target.lat, target.lng]
-      ]);
+    const points = [];
+    if (position) points.push([position.lat, position.lng]);
+    if (target) points.push([target.lat, target.lng]);
+    if (secondaryTarget) points.push([secondaryTarget.lat, secondaryTarget.lng]);
+
+    if (points.length >= 2) {
+      const bounds = L.latLngBounds(points);
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17 });
     } else if (target) {
       map.setView([target.lat, target.lng], 16);
     }
-  }, [position, target, map]);
-  
+  }, [position, target, secondaryTarget, map]);
+
   return null;
 };
 
-// Mini Map Component
-const MiniMap = ({ position, target, team, unlockRadius, isUnlocked }) => {
+// Mini Map Component - shows current stop and optionally next stop
+const MiniMap = ({ position, currentStop, nextStop, team, unlockRadius, isCurrentUnlocked }) => {
   const isSparkle = team === 'sparkle';
   const playerIcon = isSparkle ? sparkleIcon : thunderIcon;
-  const isFinish = target.name.includes('FINISH');
-  const destinationIcon = isFinish ? finishIcon : targetIcon;
-  
   const lineColor = isSparkle ? '#ec4899' : '#3b82f6';
-  
+
+  // Determine what to show
+  const hasNextStop = nextStop && isCurrentUnlocked;
+  const primaryTarget = hasNextStop ? nextStop : currentStop;
+  const isFinish = primaryTarget.name.includes('FINISH');
+
+  // Calculate map center - if we have both stops, center between them
+  const mapCenter = hasNextStop
+    ? [(currentStop.lat + nextStop.lat) / 2, (currentStop.lng + nextStop.lng) / 2]
+    : [currentStop.lat, currentStop.lng];
+
   return (
     <div className="rounded-xl overflow-hidden border-2 border-white border-opacity-30 shadow-lg" style={{ height: '200px' }}>
       <MapContainer
-        center={[target.lat, target.lng]}
+        center={mapCenter}
         zoom={16}
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
@@ -169,34 +180,60 @@ const MiniMap = ({ position, target, team, unlockRadius, isUnlocked }) => {
         scrollWheelZoom={false}
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        <MapController position={position} target={target} />
-        
-        {/* Target location */}
-        <Marker position={[target.lat, target.lng]} icon={destinationIcon} />
-        
-        {/* Unlock radius circle */}
-        <Circle 
-          center={[target.lat, target.lng]} 
+        <MapController position={position} target={primaryTarget} secondaryTarget={hasNextStop ? currentStop : null} />
+
+        {/* Current stop - show as completed (green) if unlocked, or as target if not */}
+        <Marker
+          position={[currentStop.lat, currentStop.lng]}
+          icon={isCurrentUnlocked ? completedIcon : (currentStop.name.includes('FINISH') ? finishIcon : targetIcon)}
+        />
+        <Circle
+          center={[currentStop.lat, currentStop.lng]}
           radius={unlockRadius}
-          pathOptions={{ 
-            color: isUnlocked ? '#22c55e' : lineColor, 
-            fillColor: isUnlocked ? '#22c55e' : lineColor,
+          pathOptions={{
+            color: isCurrentUnlocked ? '#22c55e' : lineColor,
+            fillColor: isCurrentUnlocked ? '#22c55e' : lineColor,
             fillOpacity: 0.15,
             weight: 2,
-            dashArray: isUnlocked ? null : '5, 5'
+            dashArray: isCurrentUnlocked ? null : '5, 5'
           }}
         />
-        
-        {/* Current position */}
+
+        {/* Next stop - show if current is unlocked */}
+        {hasNextStop && (
+          <>
+            <Marker
+              position={[nextStop.lat, nextStop.lng]}
+              icon={isFinish ? finishIcon : nextIcon}
+            />
+            <Circle
+              center={[nextStop.lat, nextStop.lng]}
+              radius={unlockRadius}
+              pathOptions={{
+                color: lineColor,
+                fillColor: lineColor,
+                fillOpacity: 0.1,
+                weight: 2,
+                dashArray: '5, 5'
+              }}
+            />
+            {/* Line from current to next stop */}
+            <Polyline
+              positions={[[currentStop.lat, currentStop.lng], [nextStop.lat, nextStop.lng]]}
+              pathOptions={{ color: '#22c55e', weight: 3, opacity: 0.6 }}
+            />
+          </>
+        )}
+
+        {/* Player position */}
         {position && (
           <>
             <Marker position={[position.lat, position.lng]} icon={playerIcon} />
-            {!isUnlocked && (
-              <Polyline 
-                positions={[[position.lat, position.lng], [target.lat, target.lng]]}
-                pathOptions={{ color: lineColor, weight: 3, opacity: 0.7, dashArray: '10, 10' }}
-              />
-            )}
+            {/* Line from player to target (next stop if unlocked, current if locked) */}
+            <Polyline
+              positions={[[position.lat, position.lng], [primaryTarget.lat, primaryTarget.lng]]}
+              pathOptions={{ color: lineColor, weight: 3, opacity: 0.7, dashArray: '10, 10' }}
+            />
           </>
         )}
       </MapContainer>
@@ -823,17 +860,24 @@ const ClueCard = ({ stop, team, distance, isUnlocked, onUnlock, position, unlock
               <>
                 {/* Debug: Show what coords map is using */}
                 <div className="bg-black bg-opacity-70 text-white text-xs p-2 rounded mb-2">
-                  <p>Map showing: {mapTarget.name}</p>
-                  <p>Coords: {mapTarget.lat?.toFixed(6)}, {mapTarget.lng?.toFixed(6)}</p>
-                  <p>Stop ID: {mapTarget.id} | Unlocked: {isUnlocked ? 'yes' : 'no'}</p>
+                  <p><strong>Current:</strong> {stop.name} ({stop.id})</p>
+                  <p>Coords: {stop.lat?.toFixed(6)}, {stop.lng?.toFixed(6)}</p>
+                  {nextStop && (
+                    <>
+                      <p className="mt-1"><strong>Next:</strong> {nextStop.name} ({nextStop.id})</p>
+                      <p>Coords: {nextStop.lat?.toFixed(6)}, {nextStop.lng?.toFixed(6)}</p>
+                    </>
+                  )}
+                  <p className="mt-1 text-yellow-300">Unlocked: {isUnlocked ? 'yes' : 'no'}</p>
                 </div>
                 <MiniMap
-                  key={`${mapTarget.id}-${mapTarget.lat}-${mapTarget.lng}`}
+                  key={`${stop.id}-${stop.lat}-${stop.lng}-${nextStop?.id || 'none'}`}
                   position={position}
-                  target={mapTarget}
+                  currentStop={stop}
+                  nextStop={nextStop}
                   team={team}
                   unlockRadius={unlockRadius}
-                  isUnlocked={isLastStop}
+                  isCurrentUnlocked={isUnlocked}
                 />
                 {position && mapDistance !== null && (
                   <DirectionIndicator position={position} target={mapTarget} distance={mapDistance} team={team} />
