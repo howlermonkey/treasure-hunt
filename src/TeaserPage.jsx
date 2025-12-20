@@ -100,7 +100,7 @@ const TeaserPage = () => {
         </div>
 
         {/* Details Card */}
-        <div className="bg-opacity-10 bg-green-950 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-white border-opacity-20 shadow-xl">
+        <div className="bg-opacity-10 bg-green-800 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-white border-opacity-20 shadow-xl">
           <div className="flex items-center justify-center gap-3 mb-4">
             <span className="text-3xl">🦌</span>
             <div className="text-center">
