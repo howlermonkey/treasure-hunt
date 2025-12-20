@@ -821,7 +821,14 @@ const ClueCard = ({ stop, team, distance, isUnlocked, onUnlock, position, unlock
 
             {showMap && (
               <>
+                {/* Debug: Show what coords map is using */}
+                <div className="bg-black bg-opacity-70 text-white text-xs p-2 rounded mb-2">
+                  <p>Map showing: {mapTarget.name}</p>
+                  <p>Coords: {mapTarget.lat?.toFixed(6)}, {mapTarget.lng?.toFixed(6)}</p>
+                  <p>Stop ID: {mapTarget.id} | Unlocked: {isUnlocked ? 'yes' : 'no'}</p>
+                </div>
                 <MiniMap
+                  key={`${mapTarget.id}-${mapTarget.lat}-${mapTarget.lng}`}
                   position={position}
                   target={mapTarget}
                   team={team}
