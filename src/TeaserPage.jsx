@@ -143,8 +143,8 @@ const TeaserPage = () => {
             </p>
             <span>🔒</span>
           </div>
-        </div>
-      </div> */}
+        </div> */}
+      </div>
 
       {/* Footer */}
       <div className="absolute bottom-4 left-0 right-0 text-center">
