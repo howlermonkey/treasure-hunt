@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap, Circle, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { db } from './firebase';
@@ -26,7 +26,6 @@ const sparkleIcon = createIcon('🦄', 28);
 const thunderIcon = createIcon('⚡', 28);
 const finishIcon = createIcon('🏆', 36);
 const completedIcon = createIcon('✅', 24);
-const nextIcon = createIcon('🎯', 32);
 
 // Default coordinates around Clapperstile Gate / Cricket & Rugby clubs area
 const DEFAULT_STOPS = {
@@ -171,23 +170,11 @@ const MiniMap = ({ position, currentStop, team, unlockRadius, isCurrentUnlocked 
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <MapController position={position} target={currentStop} />
 
-        {/* Debug: Red dot at exact coordinates */}
-        <Circle
-          center={[currentStop.lat, currentStop.lng]}
-          radius={3}
-          pathOptions={{ color: 'red', fillColor: 'red', fillOpacity: 1, weight: 2 }}
-        />
-
-        {/* Current stop - show as completed (green) if unlocked, or as target if not */}
+        {/* Current stop marker */}
         <Marker
           position={[currentStop.lat, currentStop.lng]}
           icon={isCurrentUnlocked ? completedIcon : (currentStop.name.includes('FINISH') ? finishIcon : targetIcon)}
-        >
-          <Popup>
-            <strong>{currentStop.name}</strong><br/>
-            {currentStop.lat.toFixed(6)}, {currentStop.lng.toFixed(6)}
-          </Popup>
-        </Marker>
+        />
         <Circle
           center={[currentStop.lat, currentStop.lng]}
           radius={unlockRadius}
@@ -342,7 +329,6 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, o
       lat: parseFloat(lat),
       lng: parseFloat(lng)
     };
-    console.log('[Admin] Updated coords:', { team, index, lat, lng, stop: newStops[team][index] });
     setStops(newStops);
   };
 
@@ -586,13 +572,6 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, o
           </div>
         </div>
         
-        {/* Debug: Show current first stop coords */}
-        <div className="bg-gray-100 p-3 rounded-lg mb-3 text-xs">
-          <p className="font-bold">Current loaded values:</p>
-          <p>Sparkle S0: {stops?.sparkle?.[0]?.lat?.toFixed(6)}, {stops?.sparkle?.[0]?.lng?.toFixed(6)}</p>
-          <p>Thunder T0: {stops?.thunder?.[0]?.lat?.toFixed(6)}, {stops?.thunder?.[0]?.lng?.toFixed(6)}</p>
-        </div>
-
         <div className="flex flex-wrap gap-2 mb-2">
           <button
             onClick={saveToCloud}
@@ -666,7 +645,7 @@ const Snowflakes = () => (
 );
 
 // Team Selection
-const TeamSelect = ({ onSelect, onAdmin, stops, dataSource }) => (
+const TeamSelect = ({ onSelect, onAdmin }) => (
   <div
     className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
     style={{
@@ -704,14 +683,6 @@ const TeamSelect = ({ onSelect, onAdmin, stops, dataSource }) => (
     <button onClick={onAdmin} className="mt-8 text-yellow-400 text-sm underline relative z-10">
       🔧 Admin Setup
     </button>
-
-    {/* Debug Panel - shows loaded coordinates */}
-    <div className="mt-4 bg-black bg-opacity-70 text-white text-xs p-3 rounded-lg max-w-sm w-full relative z-10">
-      <p className="font-bold mb-1">📍 Debug: Loaded from {dataSource || 'unknown'}</p>
-      <p>Sparkle S0: {stops?.sparkle?.[0]?.lat?.toFixed(6)}, {stops?.sparkle?.[0]?.lng?.toFixed(6)}</p>
-      <p>Thunder T0: {stops?.thunder?.[0]?.lat?.toFixed(6)}, {stops?.thunder?.[0]?.lng?.toFixed(6)}</p>
-      <p className="mt-1 text-yellow-300">Sparkle stops: {stops?.sparkle?.length} | Thunder stops: {stops?.thunder?.length}</p>
-    </div>
 
     <p className="text-red-600 text-opacity-60 text-xs mt-4 relative z-10">🎄 Merry Christmas! 🎄</p>
   </div>
@@ -834,12 +805,6 @@ const ClueCard = ({ stop, team, distance, isUnlocked, onUnlock, position, unlock
 
             {showMap && (
               <>
-                {/* Debug: Show what coords map is using */}
-                <div className="bg-black bg-opacity-70 text-white text-xs p-2 rounded mb-2">
-                  <p><strong>Stop:</strong> {stop.name} ({stop.id})</p>
-                  <p>Coords: {stop.lat?.toFixed(6)}, {stop.lng?.toFixed(6)}</p>
-                  <p className="mt-1 text-yellow-300">Unlocked: {isUnlocked ? 'yes' : 'no'}</p>
-                </div>
                 <MiniMap
                   key={`${stop.id}-${stop.lat}-${stop.lng}`}
                   position={position}
@@ -1058,64 +1023,30 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [stops, setStops] = useState(DEFAULT_STOPS);
   const [unlockRadius, setUnlockRadius] = useState(UNLOCK_RADIUS);
-  const [dataSource, setDataSource] = useState('defaults');
 
   // Load config from Firestore on mount
   useEffect(() => {
     const loadConfig = async () => {
-      console.log('[TreasureHunt] Starting config load...');
       try {
         const docRef = doc(db, 'config', 'treasureHunt');
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
-          console.log('[TreasureHunt] ✅ Loaded from CLOUD:', {
-            hasStops: !!data.stops,
-            sparkleCount: data.stops?.sparkle?.length,
-            thunderCount: data.stops?.thunder?.length,
-            unlockRadius: data.unlockRadius,
-            updatedAt: data.updatedAt,
-            firstSparkleStop: data.stops?.sparkle?.[0]
-          });
           if (data.stops) setStops(data.stops);
           if (data.unlockRadius) setUnlockRadius(data.unlockRadius);
-          setDataSource('CLOUD ☁️');
         } else {
-          console.log('[TreasureHunt] ⚠️ No cloud config found, trying localStorage...');
           // Fallback to localStorage if no cloud config
           const savedStops = localStorage.getItem('treasureHuntStops');
           const savedRadius = localStorage.getItem('treasureHuntRadius');
-          if (savedStops) {
-            const parsed = JSON.parse(savedStops);
-            console.log('[TreasureHunt] 📦 Loaded from localStorage:', {
-              sparkleCount: parsed?.sparkle?.length,
-              thunderCount: parsed?.thunder?.length,
-              firstSparkleStop: parsed?.sparkle?.[0]
-            });
-            setStops(parsed);
-            setDataSource('localStorage 📦');
-          } else {
-            console.log('[TreasureHunt] 🔄 Using DEFAULT_STOPS');
-            setDataSource('DEFAULTS ⚠️');
-          }
+          if (savedStops) setStops(JSON.parse(savedStops));
           if (savedRadius) setUnlockRadius(parseInt(savedRadius));
         }
       } catch (err) {
-        console.error('[TreasureHunt] ❌ Cloud load failed:', err);
-        setDataSource('CLOUD FAILED ❌');
         // Fallback to localStorage
         try {
           const savedStops = localStorage.getItem('treasureHuntStops');
           const savedRadius = localStorage.getItem('treasureHuntRadius');
-          if (savedStops) {
-            const parsed = JSON.parse(savedStops);
-            console.log('[TreasureHunt] 📦 Fallback to localStorage:', {
-              sparkleCount: parsed?.sparkle?.length,
-              thunderCount: parsed?.thunder?.length
-            });
-            setStops(parsed);
-            setDataSource('localStorage (fallback) 📦');
-          }
+          if (savedStops) setStops(JSON.parse(savedStops));
           if (savedRadius) setUnlockRadius(parseInt(savedRadius));
         } catch { /* ignore */ }
       }
@@ -1139,39 +1070,22 @@ export default function App() {
 
   // Save to Firestore
   const saveToCloud = async () => {
-    console.log('[TreasureHunt] 💾 Saving to cloud...', {
-      sparkleCount: stops?.sparkle?.length,
-      thunderCount: stops?.thunder?.length,
-      unlockRadius,
-      firstSparkleStop: stops?.sparkle?.[0]
-    });
     const docRef = doc(db, 'config', 'treasureHunt');
     await setDoc(docRef, {
       stops,
       unlockRadius,
       updatedAt: new Date().toISOString()
     });
-    console.log('[TreasureHunt] ✅ Cloud save complete');
   };
 
   // Reload from Firestore
   const reloadFromCloud = async () => {
-    console.log('[TreasureHunt] 🔄 Reloading from cloud...');
     const docRef = doc(db, 'config', 'treasureHunt');
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       const data = docSnap.data();
-      console.log('[TreasureHunt] ✅ Reloaded from CLOUD:', {
-        hasStops: !!data.stops,
-        sparkleCount: data.stops?.sparkle?.length,
-        thunderCount: data.stops?.thunder?.length,
-        unlockRadius: data.unlockRadius,
-        updatedAt: data.updatedAt,
-        firstSparkleStop: data.stops?.sparkle?.[0]
-      });
       if (data.stops) setStops(data.stops);
       if (data.unlockRadius) setUnlockRadius(data.unlockRadius);
-      setDataSource('CLOUD ☁️ (reloaded)');
     } else {
       throw new Error('No cloud config found');
     }
@@ -1194,8 +1108,6 @@ export default function App() {
         <TeamSelect
           onSelect={(team) => { setSelectedTeam(team); setScreen('game'); }}
           onAdmin={() => setShowAdmin(true)}
-          stops={stops}
-          dataSource={dataSource}
         />
       )}
 
