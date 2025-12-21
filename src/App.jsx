@@ -131,46 +131,35 @@ const getDirection = (bearing) => {
 };
 
 // Map auto-fit
-const MapController = ({ position, target, secondaryTarget }) => {
+const MapController = ({ position, target }) => {
   const map = useMap();
 
   useEffect(() => {
-    const points = [];
-    if (position) points.push([position.lat, position.lng]);
-    if (target) points.push([target.lat, target.lng]);
-    if (secondaryTarget) points.push([secondaryTarget.lat, secondaryTarget.lng]);
-
-    if (points.length >= 2) {
-      const bounds = L.latLngBounds(points);
+    if (position && target) {
+      const bounds = L.latLngBounds([
+        [position.lat, position.lng],
+        [target.lat, target.lng]
+      ]);
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17 });
     } else if (target) {
       map.setView([target.lat, target.lng], 16);
     }
-  }, [position, target, secondaryTarget, map]);
+  }, [position, target, map]);
 
   return null;
 };
 
-// Mini Map Component - shows current stop and optionally next stop
-const MiniMap = ({ position, currentStop, nextStop, team, unlockRadius, isCurrentUnlocked }) => {
+// Mini Map Component - shows current stop only
+const MiniMap = ({ position, currentStop, team, unlockRadius, isCurrentUnlocked }) => {
   const isSparkle = team === 'sparkle';
   const playerIcon = isSparkle ? sparkleIcon : thunderIcon;
   const lineColor = isSparkle ? '#ec4899' : '#3b82f6';
-
-  // Determine what to show
-  const hasNextStop = nextStop && isCurrentUnlocked;
-  const primaryTarget = hasNextStop ? nextStop : currentStop;
-  const isFinish = primaryTarget.name.includes('FINISH');
-
-  // Calculate map center - if we have both stops, center between them
-  const mapCenter = hasNextStop
-    ? [(currentStop.lat + nextStop.lat) / 2, (currentStop.lng + nextStop.lng) / 2]
-    : [currentStop.lat, currentStop.lng];
+  const isFinish = currentStop.name.includes('FINISH');
 
   return (
     <div className="rounded-xl overflow-hidden border-2 border-white border-opacity-30 shadow-lg" style={{ height: '200px' }}>
       <MapContainer
-        center={mapCenter}
+        center={[currentStop.lat, currentStop.lng]}
         zoom={16}
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
@@ -180,7 +169,7 @@ const MiniMap = ({ position, currentStop, nextStop, team, unlockRadius, isCurren
         scrollWheelZoom={false}
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        <MapController position={position} target={primaryTarget} secondaryTarget={hasNextStop ? currentStop : null} />
+        <MapController position={position} target={currentStop} />
 
         {/* Debug: Red dot at exact coordinates */}
         <Circle
@@ -211,42 +200,7 @@ const MiniMap = ({ position, currentStop, nextStop, team, unlockRadius, isCurren
           }}
         />
 
-        {/* Next stop - show if current is unlocked */}
-        {hasNextStop && (
-          <>
-            {/* Debug: Blue dot at exact next stop coordinates */}
-            <Circle
-              center={[nextStop.lat, nextStop.lng]}
-              radius={3}
-              pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 1, weight: 2 }}
-            />
-            <Marker
-              position={[nextStop.lat, nextStop.lng]}
-              icon={isFinish ? finishIcon : nextIcon}
-            >
-              <Popup>
-                <strong>{nextStop.name}</strong><br/>
-                {nextStop.lat.toFixed(6)}, {nextStop.lng.toFixed(6)}
-              </Popup>
-            </Marker>
-            <Circle
-              center={[nextStop.lat, nextStop.lng]}
-              radius={unlockRadius}
-              pathOptions={{
-                color: lineColor,
-                fillColor: lineColor,
-                fillOpacity: 0.1,
-                weight: 2,
-                dashArray: '5, 5'
-              }}
-            />
-            {/* Line from current to next stop */}
-            <Polyline
-              positions={[[currentStop.lat, currentStop.lng], [nextStop.lat, nextStop.lng]]}
-              pathOptions={{ color: '#22c55e', weight: 3, opacity: 0.6 }}
-            />
-          </>
-        )}
+        {/* Next stop marker removed - only showing current stop */}
 
         {/* Player position */}
         {position && (
@@ -254,7 +208,7 @@ const MiniMap = ({ position, currentStop, nextStop, team, unlockRadius, isCurren
             <Marker position={[position.lat, position.lng]} icon={playerIcon} />
             {/* Line from player to target (next stop if unlocked, current if locked) */}
             <Polyline
-              positions={[[position.lat, position.lng], [primaryTarget.lat, primaryTarget.lng]]}
+              positions={[[position.lat, position.lng], [currentStop.lat, currentStop.lng]]}
               pathOptions={{ color: lineColor, weight: 3, opacity: 0.7, dashArray: '10, 10' }}
             />
           </>
@@ -376,6 +330,19 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, o
     const newStops = { ...stops };
     newStops[team] = [...newStops[team]];
     newStops[team][index] = { ...newStops[team][index], [field]: field === 'lat' || field === 'lng' ? parseFloat(value) : value };
+    setStops(newStops);
+  };
+
+  // Update both lat and lng at once to avoid race conditions
+  const updateStopCoords = (team, index, lat, lng) => {
+    const newStops = { ...stops };
+    newStops[team] = [...newStops[team]];
+    newStops[team][index] = {
+      ...newStops[team][index],
+      lat: parseFloat(lat),
+      lng: parseFloat(lng)
+    };
+    console.log('[Admin] Updated coords:', { team, index, lat, lng, stop: newStops[team][index] });
     setStops(newStops);
   };
 
@@ -582,10 +549,9 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, o
                       <button
                         onClick={() => {
                           navigator.geolocation.getCurrentPosition((pos) => {
-                            updateStop(activeTeam, index, 'lat', pos.coords.latitude);
-                            updateStop(activeTeam, index, 'lng', pos.coords.longitude);
-                            alert('Location set to current position!');
-                          }, (err) => alert('GPS error: ' + err.message));
+                            updateStopCoords(activeTeam, index, pos.coords.latitude, pos.coords.longitude);
+                            alert(`Location set to: ${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`);
+                          }, (err) => alert('GPS error: ' + err.message), { enableHighAccuracy: true });
                         }}
                         className="flex-1 bg-green-500 text-white py-2 rounded text-sm"
                       >
@@ -658,8 +624,7 @@ const AdminPanel = ({ stops, setStops, unlockRadius, setUnlockRadius, onClose, o
           lat={stops[activeTeam][showMapPicker].lat}
           lng={stops[activeTeam][showMapPicker].lng}
           onLocationSelect={(lat, lng) => {
-            updateStop(activeTeam, showMapPicker, 'lat', lat);
-            updateStop(activeTeam, showMapPicker, 'lng', lng);
+            updateStopCoords(activeTeam, showMapPicker, lat, lng);
             setShowMapPicker(null);
           }}
           onClose={() => setShowMapPicker(null)}
@@ -807,12 +772,6 @@ const ClueCard = ({ stop, team, distance, isUnlocked, onUnlock, position, unlock
     }
   }, [isInRange, isUnlocked, onUnlock]);
 
-  const mapTarget = isUnlocked && nextStop ? nextStop : stop;
-  const mapDistance = isUnlocked && nextStop && position
-    ? getDistance(position.lat, position.lng, nextStop.lat, nextStop.lng)
-    : distance;
-
-  const showMapSection = isUnlocked ? nextStop : true;
   const isLastStop = !nextStop && isUnlocked;
 
   return (
@@ -865,50 +824,36 @@ const ClueCard = ({ stop, team, distance, isUnlocked, onUnlock, position, unlock
         )}
 
         {/* Map Section */}
-        {showMapSection && (
-          <div className="mt-4">
-            <button
-              onClick={() => setShowMap(!showMap)}
-              className={`w-full text-sm px-4 py-2 rounded-xl mb-3 flex items-center justify-center gap-2 transition-colors ${theme.mapBtnBg}`}
-            >
-              🗺️ {showMap ? 'Hide Map' : 'Show Map'}
-              {isUnlocked && nextStop && (
-                <span className={`text-xs px-2 py-0.5 rounded-full ${theme.nextBadge}`}>
-                  Next: {nextStop.name}
-                </span>
-              )}
-            </button>
+        <div className="mt-4">
+          <button
+            onClick={() => setShowMap(!showMap)}
+            className={`w-full text-sm px-4 py-2 rounded-xl mb-3 flex items-center justify-center gap-2 transition-colors ${theme.mapBtnBg}`}
+          >
+            🗺️ {showMap ? 'Hide Map' : 'Show Map'}
+          </button>
 
             {showMap && (
               <>
                 {/* Debug: Show what coords map is using */}
                 <div className="bg-black bg-opacity-70 text-white text-xs p-2 rounded mb-2">
-                  <p><strong>Current:</strong> {stop.name} ({stop.id})</p>
+                  <p><strong>Stop:</strong> {stop.name} ({stop.id})</p>
                   <p>Coords: {stop.lat?.toFixed(6)}, {stop.lng?.toFixed(6)}</p>
-                  {nextStop && (
-                    <>
-                      <p className="mt-1"><strong>Next:</strong> {nextStop.name} ({nextStop.id})</p>
-                      <p>Coords: {nextStop.lat?.toFixed(6)}, {nextStop.lng?.toFixed(6)}</p>
-                    </>
-                  )}
                   <p className="mt-1 text-yellow-300">Unlocked: {isUnlocked ? 'yes' : 'no'}</p>
                 </div>
                 <MiniMap
-                  key={`${stop.id}-${stop.lat}-${stop.lng}-${nextStop?.id || 'none'}`}
+                  key={`${stop.id}-${stop.lat}-${stop.lng}`}
                   position={position}
                   currentStop={stop}
-                  nextStop={nextStop}
                   team={team}
                   unlockRadius={unlockRadius}
                   isCurrentUnlocked={isUnlocked}
                 />
-                {position && mapDistance !== null && (
-                  <DirectionIndicator position={position} target={mapTarget} distance={mapDistance} team={team} />
+                {position && distance !== null && (
+                  <DirectionIndicator position={position} target={stop} distance={distance} team={team} />
                 )}
               </>
             )}
-          </div>
-        )}
+        </div>
 
         {/* Final Location Message */}
         {isLastStop && (
